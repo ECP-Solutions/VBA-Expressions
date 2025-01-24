@@ -3,11 +3,35 @@
 [![GitHub](https://img.shields.io/github/license/ws-garcia/VBA-Expressions?style=plastic)](https://github.com/ws-garcia/VBA-Expressions/blob/master/LICENSE) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ws-garcia/VBA-Expressions?style=plastic)](https://github.com/ws-garcia/VBA-Expressions/releases/latest) [![Mentioned in Awesome VBA](https://awesome.re/mentioned-badge.svg)](https://github.com/sancarn/awesome-vba)
 
 ## Introductory words
-VBA Expressions is a powerful string expression evaluator for VBA and [LO Basic](https://extensions.libreoffice.org/en/extensions/show/70059), which puts more than 100 mathematical, statistical, financial, date-time, logic and text manipulation functions at the user's fingertips. The `VBAexpressions.cls` class mediates almost all VBA functions as well as custom functions exposed through it. 
-
-Although the main development goal of the class was the integration with [CSV Interface](https://github.com/ws-garcia/VBA-CSV-interface), VBA Expressions has evolved to become a support tool for students and teachers of science, accounting, statistics and engineering; this due to the added capability to solve systems of equations and non-linear equations in one variable.
-
+Welcome to VBA Expressions, a powerful library designed to extend the capabilities of Visual Basic for Applications (VBA) within Microsoft Office and [LibreOffice environments](https://extensions.libreoffice.org/en/extensions/show/70059). This tool enriches the standard VBA language and LO BASIC with an extensive set of functions for data manipulation, calculation, and analysis, making it ideal for users needing to perform complex operations directly within their spreadsheets, documents, presentatios and much more. 
 ## ![User Manual](/docs/assets/img/VBAExprManual.pdf)
+## Key features
+* __Extensive Function Library__: Includes over 100 functions spanning:
+    * Mathematical operations
+    * Statistical analysis
+    * Financial calculations
+    * String and date-time manipulations
+* __User-Defined Functions (UDFs)__: Create custom functions to meet specific business or analytical needs.
+* __Matrix Support__: Handle matrices for advanced mathematical computations or data transformations.
+* __Seamless VBA and LO BASIC Integration__: Works directly within VBA and LO BASIC scripts, allowing for automation of complex tasks in Microsoft Excel, Access, Word, and LibreOffice.
+
+## Use cases
+### Data Management and Analysis
+* __CSV Data Processing__:
+    * Filter, join, and transform CSV data directly within VBA and LO BASIC scripts, as seen with the [CSV Interface library](https://github.com/ws-garcia/VBA-CSV-interface)
+* __Dynamic Reporting__:
+    * Generate dynamic reports by combining data from multiple sources and applying complex filters or calculations.
+### Financial Analysis
+* __Investment Analysis__: Use financial functions for NPV, IRR, or other investment metrics calculations directly within your code on all supported office ecosystem.
+* __Portfolio Management__: Manage and analyze financial data sets with custom calculations for performance metrics.
+### Scientific and Engineering Calculations
+* __Matrix Operations__: Solve linear systems, perform matrix multiplication for data modeling or simulation.
+* __Statistical Analysis__: Conduct statistical tests or data fitting within your Office tools without external software.
+### Educational and Technical Documentation
+* __Interactive Documents__: Embed calculations or data transformations in educational materials or technical documentation for live demos or explanations.
+### Automation of Repetitive Tasks
+* __Data Cleaning__: Automate data normalization, cleaning, or validation processes.
+* __Batch Processing__: Handle batch operations on data, like updating datasets with new calculations or conditions.
 
 ## Advantages
 * __Easy to use and integrate__.
@@ -338,6 +362,13 @@ End Sub
 ''' SWITCH(x='Asia';1;x='Africa';2;x='Oceania';3) = 1 for x = 'Asia'
 '@------------------------------------------------------
 ```
+## Contributing
+We welcome contributions to enhance VBA Expressions. Whether it's new functions, bug fixes, or documentation improvements, your input can help make this tool even more powerful:
+* Fork the repository.
+* Make your changes or additions.
+* Submit a pull request.
+## Support
+For issues, feature requests, or questions, please use the issue tracker on GitHub. We're also open to discussions or contributions to our wiki for more use cases and tutorials.
 ## Credits
 - [x] **Inquisitive knight**: new logo design. Awesome job!
 
