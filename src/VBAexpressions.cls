@@ -119,7 +119,7 @@ Option Base 0
 '
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ' CONSTANTS:
-Private pi As Double
+Private PI As Double
 Private PID2 As Double
 Private e As Double
 Private Const op_plus As String = "+"
@@ -302,8 +302,8 @@ End Type
 ''' </summary>
 Private Sub Class_Initialize()
     AssignedExpression = False
-    pi = 4 * Atn(1)
-    PID2 = pi / 2
+    PI = 4 * Atn(1)
+    PID2 = PI / 2
     e = Exp(1)
     P_SEPARATORCHAR = ";"
     P_DEC_SYMBOL = dsDot
@@ -608,7 +608,7 @@ Public Sub AbstractAssignments()
     Dim tmpToken As token
     Dim BaseIndex As Long
     Dim n As Long
-    Dim tmpIdx As Long
+    Dim tmpIdxRep As String
     
     tUB = UBound(EvalTree)
     tkUB = UBound(EvalTree(tUB).Storage)
@@ -625,22 +625,26 @@ Public Sub AbstractAssignments()
         Else
             If EvalTree(tUB).Storage(i).Arg1.LinkedIndex <> -1 Then
                 If EvalTree(tUB).Storage(i).Arg1.LinkedIndex >= BaseIndex Then
-                    tmpIdx = EvalTree(tUB).Storage(i).Arg1.LinkedIndex
+                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg1.LinkedIndex
+                    tmpIdxRep = Join$(LIndexConstruc, vbNullString)
                     EvalTree(tUB).Storage(i).Arg1.LinkedIndex = EvalTree(tUB).Storage(i).Arg1.LinkedIndex - j
+                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg1.LinkedIndex
                     EvalTree(tUB).Storage(i).DefString = Replace( _
                                                             EvalTree(tUB).Storage(i).DefString, _
-                                                            d_lSquareB & tmpIdx & d_rSquareB, _
-                                                            d_lSquareB & EvalTree(tUB).Storage(i).Arg1.LinkedIndex & d_rSquareB)
+                                                            tmpIdxRep, _
+                                                            Join$(LIndexConstruc, vbNullString))
                 End If
             End If
             If EvalTree(tUB).Storage(i).Arg2.LinkedIndex <> -1 Then
                 If EvalTree(tUB).Storage(i).Arg2.LinkedIndex >= BaseIndex Then
-                    tmpIdx = EvalTree(tUB).Storage(i).Arg2.LinkedIndex
+                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg2.LinkedIndex
+                    tmpIdxRep = Join$(LIndexConstruc, vbNullString)
                     EvalTree(tUB).Storage(i).Arg2.LinkedIndex = EvalTree(tUB).Storage(i).Arg2.LinkedIndex - j
+                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg2.LinkedIndex
                     EvalTree(tUB).Storage(i).DefString = Replace( _
                                                             EvalTree(tUB).Storage(i).DefString, _
-                                                            d_lSquareB & tmpIdx & d_rSquareB, _
-                                                            d_lSquareB & EvalTree(tUB).Storage(i).Arg2.LinkedIndex & d_rSquareB)
+                                                            tmpIdxRep, _
+                                                            Join$(LIndexConstruc, vbNullString))
                 End If
             End If
             i = i + 1
@@ -1040,7 +1044,7 @@ Private Function ArcCos(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(-tmpEval / Sqr(-tmpEval * tmpEval + 1)) + 2 * Atn(1)
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / pi
+        tmpEval = tmpEval * 180 / PI
     End If
     ArcCos = CStr(tmpEval)
     Exit Function
@@ -1057,7 +1061,7 @@ Private Function ArcSin(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(tmpEval / Sqr(-tmpEval * tmpEval + 1))
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / pi
+        tmpEval = tmpEval * 180 / PI
     End If
     ArcSin = CStr(tmpEval)
     Exit Function
@@ -1074,7 +1078,7 @@ Private Function ArcTan(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(tmpEval)
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / pi
+        tmpEval = tmpEval * 180 / PI
     End If
     ArcTan = CStr(tmpEval)
     Exit Function
@@ -1728,19 +1732,11 @@ Private Sub BottomLevelEval(ByRef aToken As token)
     If aToken.OperationToken < 100 Then 'Arithmetic operators
         Select Case aToken.OperationToken
             Case OperatorToken.otSum
-                If aToken.Arg1.Operand <> vbNullString Then
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) _
+                aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) _
                                         + CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
-                Else
-                    aToken.EvalResult = CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
-                End If
             Case OperatorToken.otDiff
-                If aToken.Arg1.Operand <> vbNullString Then
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) - _
+                aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) - _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
-                Else
-                    aToken.EvalResult = -1 * CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
-                End If
             Case OperatorToken.otMultiplication
                 aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) * _
                                     CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
@@ -1966,7 +1962,7 @@ Private Function CHISQ_(x As Double, n As Double) As Double
     End If
     p = Exp(-0.5 * x)
     If (REM_(n, 2) = 1) Then
-        p = p * Sqr(2 * x / pi)
+        p = p * Sqr(2 * x / PI)
     End If
     k = n
     Do While (k >= 2)
@@ -2377,7 +2373,7 @@ Private Function Cosin(ByRef expression As String, ByRef fName As String) As Str
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * pi / 180
+        tmpEval = tmpEval * PI / 180
     End If
     Cosin = CStr(Cos(tmpEval))
     Exit Function
@@ -3115,7 +3111,7 @@ Private Function FACT(n As Double) As Double
     pD = 0.577215664819072 + r * pC
     r = 1 / (1 + r * pD)
     If n > 0.5 Then
-        r = (n * (1 - n) * pi) / (r * Sin(pi * n))
+        r = (n * (1 - n) * PI) / (r * Sin(PI * n))
     End If
     FACT = r
 End Function
@@ -3210,7 +3206,7 @@ Private Function FISHF_(F As Double, N1 As Double, N2 As Double) As Double
         A = A + sth * cth * STATCOM(cth * cth, 2, N2 - 3, -1) / PID2
     End If
     If (N1 = 1) Then FISHF_ = 1 - A: Exit Function
-    c = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / pi
+    c = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / PI
     If (N2 = 1) Then FISHF_ = 1 - A + c / 2: Exit Function
     k = 2
     Do While (k <= (N2 - 1) / 2)
@@ -3941,7 +3937,11 @@ Private Function GetArithOpInfo(ByRef expression As String) As TokenInfo
                             Exit Do
                         End If
                     Else
-                        Exit Do
+                        If InStrB(1, op_AllNotUnaryItems, tmpTestChr) Then 'Unary
+                            AddSymbolPos = GetOPeratorSymbolPos(expression, op_plus, AddSymbolPos + 2)
+                        Else
+                            Exit Do
+                        End If
                     End If
                 Loop
             End If
@@ -3976,7 +3976,11 @@ Private Function GetArithOpInfo(ByRef expression As String) As TokenInfo
                             Exit Do
                         End If
                     Else
-                        Exit Do
+                        If InStrB(1, op_AllNotUnaryItems, tmpTestChr) Then 'Unary
+                            SubtSymbolPos = GetOPeratorSymbolPos(expression, op_minus, SubtSymbolPos + 2)
+                        Else
+                            Exit Do
+                        End If
                     End If
                 Loop
             End If
@@ -8125,7 +8129,7 @@ Private Function Sine(ByRef expression As String, ByRef fName As String) As Stri
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * pi / 180
+        tmpEval = tmpEval * PI / 180
     End If
     Sine = CStr(Sin(tmpEval))
     Exit Function
@@ -8619,7 +8623,7 @@ Private Function Tangent(ByRef expression As String, ByRef fName As String) As S
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * pi / 180
+        tmpEval = tmpEval * PI / 180
     End If
     Tangent = CStr(Tan(tmpEval))
     Exit Function
