@@ -144,6 +144,7 @@ Private Const op_like As String = "$"
 Private Const op_neg As String = "~"
 Private Const op_AllItems As String = "*+-/^%\=<>&|$"
 Private Const op_AllNotUnaryItems As String = "*/^%\=<>&|$"
+Private Const d_FullGrammar As String = "*+-~/^%\=<>&|!$()[]{}'; "
 Private Const d_lCurly As String = "{"
 Private Const d_rCurly As String = "}"
 Private Const d_lParenthesis As String = "("
@@ -152,7 +153,10 @@ Private Const d_lSquareB As String = "["
 Private Const d_rSquareB As String = "]"
 Private Const d_Apostrophe As String = "'"
 Private Const d_Space As String = " "
+Private Const d_Semicolon As String = ";"
 Private Const e_ValueError As String = "#VALUE!"
+Private Const e_NAError As String = "#NA"
+Private Const e_InvalidAssignment As String = "#e-100" 'Expressions cannot be assigned a value.
 Private Const Tiny As Double = 1E-20
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -305,7 +309,7 @@ Private Sub Class_Initialize()
     PI = 4 * Atn(1)
     PID2 = PI / 2
     e = Exp(1)
-    P_SEPARATORCHAR = ";"
+    P_SEPARATORCHAR = d_Semicolon
     P_DEC_SYMBOL = dsDot
     AscDecSymbol = 46
     P_GALLOPING_MODE = True
@@ -598,67 +602,99 @@ End Function
 
 ''' <summary>
 '''     Method to obtain abstract expressions that do not contemplate the intermediate
-'''     assignments defined by the equals sign.
+'''     assignments.
 ''' </summary>
-Public Sub AbstractAssignments()
-    Dim i As Long
-    Dim j As Long
-    Dim tUB As Long
-    Dim tkUB As Long
+Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
+    Dim strToEvaluate As String
+    Dim EqualSymbolPos As Long
+    Dim TokenDet As TokenInfo
     Dim tmpToken As token
-    Dim BaseIndex As Long
+    Dim tmpResult() As String
+    Dim tmpStrAssignments As String
     Dim n As Long
-    Dim tmpIdxRep As String
+    Dim testChar As String
+    Dim testChar2 As String
     
-    tUB = UBound(EvalTree)
-    tkUB = UBound(EvalTree(tUB).Storage)
-    i = LBound(EvalTree(tUB).Storage)
-    BaseIndex = UBound(SubTreeData) + 1
+    strToEvaluate = FormatEntry(CStr(aExpression))
+    strToEvaluate = ReconstructLiteralStrings(P_EXPRESSION, _
+                                SBracketsNotationToNominal(ReplaceImpliedMult(strToEvaluate)))
+    ReDim tmpResult(0 To 1) 'Indexes: [0] variables; [1] expression to evaluate
     Do
-        If EvalTree(tUB).Storage(i).OperationToken = otEqual Then
-            If (i + j + 1) <= tkUB Then 'Do not move anything beyond array limits
-                tmpToken = EvalTree(tUB).Storage(i)
-                EvalTree(tUB).Storage(i) = EvalTree(tUB).Storage(i + j + 1)
-                EvalTree(tUB).Storage(i + j + 1) = tmpToken
+        Do 'Discard false positives
+            EqualSymbolPos = GetOPeratorSymbolPos(strToEvaluate, op_equal, EqualSymbolPos + 1)
+            If EqualSymbolPos > 2 Then
+                testChar = MidB$(strToEvaluate, EqualSymbolPos - 2, 2)
+                testChar2 = MidB$(strToEvaluate, EqualSymbolPos + 2, 2) 'Check ahead for "=="
+            Else
+                testChar = vbNullString
+                testChar2 = vbNullString
             End If
-            j = j + 1 'equality counter
+        Loop While EqualSymbolPos > 0 And (testChar Like "[<>=]" Or testChar2 = op_equal)
+        If EqualSymbolPos Then
+            TokenDet.LogicalToken = True
+            TokenDet.Position = EqualSymbolPos
+            TokenDet.OperationToken = otEqual
+            TokenDet.OperatorLen = LenB(op_equal)
+            ExtractEvalToken strToEvaluate, tmpToken, TokenDet
+            'Collect variables
+            If tmpStrAssignments = vbNullString Then
+                If AbstractValidate(tmpToken.Arg1.DefString) Then
+                    tmpStrAssignments = tmpToken.Arg1.DefString
+                Else
+                    n = n + 1
+                End If
+                If AbstractValidate(tmpToken.Arg2.DefString) Then
+                    If tmpStrAssignments = vbNullString Then
+                        tmpStrAssignments = tmpToken.Arg2.DefString
+                    Else
+                        tmpStrAssignments = tmpStrAssignments & "#" & tmpToken.Arg2.DefString
+                    End If
+                Else
+                    n = n + 1
+                End If
+            Else
+                If Not AbstractValidate(tmpToken.Arg1.DefString) Then
+                    n = n + 1
+                End If
+                If AbstractValidate(tmpToken.Arg2.DefString) Then
+                    tmpStrAssignments = tmpStrAssignments & "#" & tmpToken.Arg2.DefString
+                Else
+                    n = n + 1
+                End If
+            End If
         Else
-            If EvalTree(tUB).Storage(i).Arg1.LinkedIndex <> -1 Then
-                If EvalTree(tUB).Storage(i).Arg1.LinkedIndex >= BaseIndex Then
-                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg1.LinkedIndex
-                    tmpIdxRep = Join$(LIndexConstruc, vbNullString)
-                    EvalTree(tUB).Storage(i).Arg1.LinkedIndex = EvalTree(tUB).Storage(i).Arg1.LinkedIndex - j
-                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg1.LinkedIndex
-                    EvalTree(tUB).Storage(i).DefString = Replace( _
-                                                            EvalTree(tUB).Storage(i).DefString, _
-                                                            tmpIdxRep, _
-                                                            Join$(LIndexConstruc, vbNullString))
-                End If
-            End If
-            If EvalTree(tUB).Storage(i).Arg2.LinkedIndex <> -1 Then
-                If EvalTree(tUB).Storage(i).Arg2.LinkedIndex >= BaseIndex Then
-                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg2.LinkedIndex
-                    tmpIdxRep = Join$(LIndexConstruc, vbNullString)
-                    EvalTree(tUB).Storage(i).Arg2.LinkedIndex = EvalTree(tUB).Storage(i).Arg2.LinkedIndex - j
-                    LIndexConstruc(1) = EvalTree(tUB).Storage(i).Arg2.LinkedIndex
-                    EvalTree(tUB).Storage(i).DefString = Replace( _
-                                                            EvalTree(tUB).Storage(i).DefString, _
-                                                            tmpIdxRep, _
-                                                            Join$(LIndexConstruc, vbNullString))
-                End If
-            End If
-            i = i + 1
+            Exit Do
         End If
-        n = n + 1
-    Loop While n - 1 < tkUB
-    If j = n Then 'Full assigment
-        ReDim Preserve EvalTree(0 To tUB - 1)
-    Else 'j < n
-        ReDim Preserve EvalTree(tUB).Storage(0 To tkUB - j)
-        EvalTree(tUB).index = EvalTree(tUB).index - j
-        EvalTree(tUB).Capacity = EvalTree(tUB).Capacity - j
+    Loop
+    If n Then 'Isolate assigments
+        If n < 2 Then
+            tmpResult(0) = tmpStrAssignments
+            tmpResult(1) = Replace(strToEvaluate, Join$(Split(tmpStrAssignments, _
+                                                        "#"), op_equal) & op_equal, _
+                                                        vbNullString)
+        Else 'Expressions cannot be assigned a value.
+            tmpResult(0) = e_InvalidAssignment
+            tmpResult(1) = e_InvalidAssignment
+        End If
+    Else
+        tmpResult(0) = e_NAError
+        tmpResult(1) = strToEvaluate
     End If
-End Sub
+    AbstractAssignments = tmpResult
+End Function
+Private Function AbstractValidate(strAssignments As String) As Boolean
+    Dim i As Long
+    Dim L As Long
+    Dim tmpResult As Boolean
+    
+    L = Len(d_FullGrammar)
+    i = 1
+    Do
+        tmpResult = (InStr(1, strAssignments, Mid(d_FullGrammar, i, 1)) = 0)
+        i = i + 1
+    Loop While i <= L And tmpResult
+    AbstractValidate = tmpResult
+End Function
 
 Private Function aCeiling(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
@@ -4044,42 +4080,49 @@ Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As
     End If
 End Function
 
-Private Function GetEvalToken(ByRef expression As String) As token
+Private Sub ExtractEvalToken(ByRef expression As String, _
+                            ByRef aToken As token, ByRef TokenDet As TokenInfo)
     Dim TokenStart As Long
     Dim TokenEnd As Long
-    Dim TokenDet As TokenInfo
     Dim tmpArgs() As String
     
-    TokenDet = GetTokenInfo(expression)
     If TokenDet.Position > 2 Then
         '@--------------------------------------------------------------------
         ' Delimit token
         GetTokenStart expression, TokenDet.Position, TokenStart
         GetTokenEnd expression, TokenDet.Position, TokenDet.OperatorLen, TokenEnd
-        GetEvalToken.DefString = MidB$(expression, TokenStart, TokenEnd - TokenStart + 2)
-        GetEvalToken.OperationToken = TokenDet.OperationToken
-        SplitToken GetEvalToken.DefString, tmpArgs, GetEvalToken.OperationToken
-        GetEvalToken.Logical = TokenDet.LogicalToken
+        aToken.DefString = MidB$(expression, TokenStart, TokenEnd - TokenStart + 2)
+        aToken.OperationToken = TokenDet.OperationToken
+        SplitToken aToken.DefString, tmpArgs, aToken.OperationToken
+        aToken.Logical = TokenDet.LogicalToken
         '@--------------------------------------------------------------------
         ' Define arguments
-        GetEvalToken.Arg1.DefString = tmpArgs(LBound(tmpArgs))
-        GetEvalToken.Arg2.DefString = tmpArgs(UBound(tmpArgs))
+        aToken.Arg1.DefString = tmpArgs(LBound(tmpArgs))
+        aToken.Arg2.DefString = tmpArgs(UBound(tmpArgs))
         '@--------------------------------------------------------------------
         ' Fill arguments data
-        FillTokenArgProps GetEvalToken.Arg1
-        FillTokenArgProps GetEvalToken.Arg2
+        FillTokenArgProps aToken.Arg1
+        FillTokenArgProps aToken.Arg2
     Else            'Retun values
-        GetEvalToken.DefString = expression
-        GetEvalToken.OperationToken = OperatorToken.otNull
-        GetEvalToken.Logical = TokenDet.LogicalToken
+        aToken.DefString = expression
+        aToken.OperationToken = OperatorToken.otNull
+        aToken.Logical = TokenDet.LogicalToken
         '@--------------------------------------------------------------------
         ' Define argument
-        GetEvalToken.Arg1.DefString = expression
+        aToken.Arg1.DefString = expression
         '@--------------------------------------------------------------------
         ' Fill argument data
-        FillTokenArgProps GetEvalToken.Arg1
-        FillTokenArgProps GetEvalToken.Arg2, True
+        FillTokenArgProps aToken.Arg1
+        FillTokenArgProps aToken.Arg2, True
     End If
+End Sub
+Private Function GetEvalToken(ByRef expression As String) As token
+    Dim TokenDet As TokenInfo
+    Dim tmpResult As token
+    
+    TokenDet = GetTokenInfo(expression)
+    ExtractEvalToken expression, tmpResult, TokenDet
+    GetEvalToken = tmpResult
 End Function
 
 Private Function GetFunctionName(ByRef expression As String) As String
