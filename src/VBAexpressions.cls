@@ -601,8 +601,9 @@ err_Handler:
 End Function
 
 ''' <summary>
-'''     Method to obtain abstract expressions that do not contemplate the intermediate
-'''     assignments.
+'''     Returns an array containing two elements: assignments and expression to be evaluated.
+'''     The expression to be evaluated must comply with the premise that all assignments are made
+'''     prior to the expression statement.
 ''' </summary>
 Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
     Dim strToEvaluate As String
@@ -666,19 +667,19 @@ Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
             Exit Do
         End If
     Loop
+    tmpStrAssignments = Join$(Split(tmpStrAssignments, "#"), op_equal) 'Fix representation
     If n Then 'Isolate assigments
         If n < 2 Then
             tmpResult(0) = tmpStrAssignments
-            tmpResult(1) = Replace(strToEvaluate, Join$(Split(tmpStrAssignments, _
-                                                        "#"), op_equal) & op_equal, _
+            tmpResult(1) = Replace(strToEvaluate, tmpStrAssignments & op_equal, _
                                                         vbNullString)
         Else 'Expressions cannot be assigned a value.
             tmpResult(0) = e_InvalidAssignment
             tmpResult(1) = e_InvalidAssignment
         End If
     Else
-        tmpResult(0) = e_NAError
-        tmpResult(1) = strToEvaluate
+        tmpResult(0) = tmpStrAssignments
+        tmpResult(1) = e_NAError
     End If
     AbstractAssignments = tmpResult
 End Function
