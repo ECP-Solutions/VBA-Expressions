@@ -599,7 +599,8 @@ err_Handler:
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
-
+'#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
+'#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 ''' <summary>
 '''     Returns an array containing two elements: assignments and expression to be evaluated.
 '''     The expression to be evaluated must comply with the premise that all assignments are made
@@ -696,7 +697,24 @@ Private Function AbstractValidate(strAssignments As String) As Boolean
     Loop While i <= L And tmpResult
     AbstractValidate = tmpResult
 End Function
-
+''' <summary>
+'''     Returns an array containing all lines from a given ASF script file.
+''' </summary>
+Public Function ReadASFfile(filePath As String) As String()
+    Dim FileHandled As Long
+    Dim fLen As Long
+    Dim Buffer As String
+    
+    FileHandled = FreeFile
+    Open filePath For Binary As #FileHandled
+    fLen = LOF(FileHandled)
+    Buffer = Space$(fLen)
+    Get #FileHandled, , Buffer
+    Close #FileHandled
+    ReadASFfile = Split(Replace(Trim(Buffer), vbCr, vbNullString), vbLf)
+End Function
+'#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
+'#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 Private Function aCeiling(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
     aCeiling = CStr(Ceiling(CDbl(expression)))
