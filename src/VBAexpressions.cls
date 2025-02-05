@@ -154,6 +154,8 @@ Private Const d_rSquareB As String = "]"
 Private Const d_Apostrophe As String = "'"
 Private Const d_Space As String = " "
 Private Const d_Semicolon As String = ";"
+Private Const d_FalseKW As String = "false"
+Private Const d_TrueKW As String = "true"
 Private Const e_ValueError As String = "#VALUE!"
 Private Const e_NAError As String = "#NA"
 Private Const e_InvalidAssignment As String = "#e-100" 'Expressions cannot be assigned a value.
@@ -606,12 +608,13 @@ End Function
 '''     The expression to be evaluated must comply with the premise that all assignments are made
 '''     prior to the expression statement.
 ''' </summary>
-Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
+Public Function AbstractAssignments(ByRef aExpression As Variant) As Variant
     Dim strToEvaluate As String
     Dim EqualSymbolPos As Long
     Dim TokenDet As TokenInfo
     Dim tmpToken As token
-    Dim tmpResult() As String
+    Dim tmpResult() As Variant
+    Dim tmpStrArr() As String
     Dim tmpStrAssignments As String
     Dim n As Long
     Dim testChar As String
@@ -649,7 +652,7 @@ Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
                     If tmpStrAssignments = vbNullString Then
                         tmpStrAssignments = tmpToken.Arg2.DefString
                     Else
-                        tmpStrAssignments = tmpStrAssignments & "#" & tmpToken.Arg2.DefString
+                        tmpStrAssignments = tmpStrAssignments & op_equal & tmpToken.Arg2.DefString
                     End If
                 Else
                     n = n + 1
@@ -659,7 +662,7 @@ Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
                     n = n + 1
                 End If
                 If AbstractValidate(tmpToken.Arg2.DefString) Then
-                    tmpStrAssignments = tmpStrAssignments & "#" & tmpToken.Arg2.DefString
+                    tmpStrAssignments = tmpStrAssignments & op_equal & tmpToken.Arg2.DefString
                 Else
                     n = n + 1
                 End If
@@ -668,10 +671,9 @@ Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
             Exit Do
         End If
     Loop
-    tmpStrAssignments = Join$(Split(tmpStrAssignments, "#"), op_equal) 'Fix representation
     If n Then 'Isolate assigments
         If n < 2 Then
-            tmpResult(0) = tmpStrAssignments
+            tmpResult(0) = Split(tmpStrAssignments, op_equal)
             tmpResult(1) = Replace(strToEvaluate, tmpStrAssignments & op_equal, _
                                                         vbNullString)
         Else 'Expressions cannot be assigned a value.
@@ -679,8 +681,10 @@ Public Function AbstractAssignments(ByRef aExpression As Variant) As String()
             tmpResult(1) = e_InvalidAssignment
         End If
     Else
-        tmpResult(0) = tmpStrAssignments
-        tmpResult(1) = e_NAError
+        tmpStrArr() = Split(tmpStrAssignments, op_equal)
+        tmpResult(1) = tmpStrArr(UBound(tmpStrArr)) 'Right side
+        ReDim Preserve tmpStrArr(0 To UBound(tmpStrArr) - 1)
+        tmpResult(0) = tmpStrArr
     End If
     AbstractAssignments = tmpResult
 End Function
@@ -712,6 +716,54 @@ Public Function ReadASFfile(filePath As String) As String()
     Get #FileHandled, , Buffer
     Close #FileHandled
     ReadASFfile = Split(Replace(Trim(Buffer), vbCr, vbNullString), vbLf)
+End Function
+Public Sub DeclareASF(ByRef ASFname As Variant)
+    Dim tmpArr() As String
+    
+    If IsArray(ASFname) Then
+        Dim i As Long
+        For i = LBound(ASFname) To UBound(ASFname)
+            tmpArr() = Split(ASFname(i), ":")
+            StoreUDF UserDefFunctions, tmpArr(LBound(tmpArr)), tmpArr(UBound(tmpArr)), "ASF"    'The Value member points to the arguments
+        Next i
+    Else
+        tmpArr() = Split(ASFname(i), ":")
+        StoreUDF UserDefFunctions, tmpArr(LBound(tmpArr)), tmpArr(UBound(tmpArr)), "ASF"
+    End If
+End Sub
+Public Function Compile_Assigment(input_Str As String) As ASF_STATEMENT
+    Dim tmpAssigment As Variant
+    Dim tmpResult As ASF_STATEMENT
+    Dim tmpOp As ASF_OPERATION
+    Dim i As Long
+    
+    tmpAssigment = AbstractAssignments(input_Str)
+    If IsArray(tmpAssigment(0)) Then
+        Set tmpResult = New ASF_STATEMENT
+        With tmpResult
+            .InitializeStack (2)
+            Set tmpOp = .STACK_(0)
+        End With
+        With tmpOp
+            .TYPE_ = expression_eval
+            Set .expression_ = New VBAexpressions
+            .expression_.Create tmpAssigment(1)
+            .arguments_ = Split(.expression_.CurrentVariables, d_Semicolon)
+            Set .SCOPE_ = .expression_.EvalScope
+            .function_id_ = e_NAError
+            .level_ = 1
+        End With
+        Set tmpOp = tmpResult.STACK_(1)
+        With tmpOp
+            .TYPE_ = variable_set
+            .arguments_ = tmpAssigment(0)
+            .function_id_ = e_NAError
+            .level_ = 1
+        End With
+    Else 'Invalid assigment found
+        Set tmpResult = Nothing
+    End If
+    Set Compile_Assigment = tmpResult
 End Function
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
@@ -935,18 +987,18 @@ err_Handler:
 End Function
 
 Private Function AFISHF_(p As Double, N1 As Double, N2 As Double) As Double
-    Dim v As Double, dv As Double, F As Double
+    Dim v As Double, dv As Double, f As Double
     
-    v = 0.5: dv = 0.5: F = 0
+    v = 0.5: dv = 0.5: f = 0
     Do While (dv > 0.000000000000001)
-        F = 1 / v - 1: dv = dv / 2
-        If (FISHF_(F, N1, N2) > p) Then
+        f = 1 / v - 1: dv = dv / 2
+        If (FISHF_(f, N1, N2) > p) Then
              v = v - dv
         Else
             v = v + dv
         End If
     Loop
-    AFISHF_ = F
+    AFISHF_ = f
 End Function
 
 Private Function aFloor(ByRef expression As String, ByRef fName As String) As String
@@ -1783,6 +1835,8 @@ Private Function BETAPDF_EXCEL(x As Double, Alpha As Double, _
 End Function
 
 Private Sub BottomLevelEval(ByRef aToken As token)
+    Dim tmpBool As Boolean
+    
     On Error GoTo BLevelEval_errHanlder
     If aToken.OperationToken < 100 Then 'Arithmetic operators
         Select Case aToken.OperationToken
@@ -1817,12 +1871,17 @@ Private Sub BottomLevelEval(ByRef aToken As token)
                 If aToken.Logical Then
                     If aToken.Arg1.NegationFlagOn Then
                         If AscW(aToken.Arg1.Operand) <> 126 Then '"~"
-                            aToken.EvalResult = CBool(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn))
+                            tmpBool = CBool(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn))
                         Else
-                            aToken.EvalResult = CBool(MidB$(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn), 3))
+                            tmpBool = CBool(MidB$(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn), 3))
                         End If
                     Else
-                        aToken.EvalResult = CBool(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn))
+                        tmpBool = CBool(CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn))
+                    End If
+                    If tmpBool Then
+                        aToken.EvalResult = d_TrueKW
+                    Else
+                        aToken.EvalResult = d_FalseKW
                     End If
                 Else
                     aToken.EvalResult = aToken.Arg1.Operand
@@ -1832,40 +1891,50 @@ Private Sub BottomLevelEval(ByRef aToken As token)
         If aToken.OperationToken < 200 Then 'Comparison operators
             Select Case aToken.OperationToken
                 Case OperatorToken.otEqual, OperatorToken.otEqual_
-                    aToken.EvalResult = (CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) = _
+                    tmpBool = (CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) = _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn))
                 Case OperatorToken.otNotEqual
-                    aToken.EvalResult = (CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) <> _
+                    tmpBool = (CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) <> _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn))
                 Case OperatorToken.otGreaterThan
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) > _
+                    tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) > _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
                 Case OperatorToken.otLessThan
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) < _
+                    tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) < _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
                 Case OperatorToken.otGreaterThanOrEqual
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) >= _
+                    tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) >= _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
                 Case OperatorToken.otLessThanOrEqual
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) <= _
+                    tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) <= _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
                 Case OperatorToken.otLike
-                    aToken.EvalResult = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) Like _
+                    tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) Like _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
             End Select
+            If tmpBool Then
+                aToken.EvalResult = d_TrueKW
+            Else
+                aToken.EvalResult = d_FalseKW
+            End If
         Else 'Logical operators
             Dim tmpBooleans() As Boolean
             Select Case aToken.OperationToken
                 Case OperatorToken.otLogicalAND
                     tmpBooleans() = GetLogicalNeg(aToken)
-                    aToken.EvalResult = tmpBooleans(0) And tmpBooleans(1)
+                    tmpBool = tmpBooleans(0) And tmpBooleans(1)
                 Case OperatorToken.otLogicalOR
                     tmpBooleans() = GetLogicalNeg(aToken)
-                    aToken.EvalResult = tmpBooleans(0) Or tmpBooleans(1)
+                    tmpBool = tmpBooleans(0) Or tmpBooleans(1)
                 Case Else
                     tmpBooleans() = GetLogicalNeg(aToken)
-                    aToken.EvalResult = tmpBooleans(0) Xor tmpBooleans(1)
+                    tmpBool = tmpBooleans(0) Xor tmpBooleans(1)
             End Select
+            If tmpBool Then
+                aToken.EvalResult = d_TrueKW
+            Else
+                aToken.EvalResult = d_FalseKW
+            End If
         End If
     End If
     EvalResultSwithc False, aToken
@@ -2780,21 +2849,6 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Public Sub DeclareASF(ByRef ASFname As Variant)
-    Dim tmpArr() As String
-    
-    If IsArray(ASFname) Then
-        Dim i As Long
-        For i = LBound(ASFname) To UBound(ASFname)
-            tmpArr() = Split(ASFname(i), ":")
-            StoreUDF UserDefFunctions, tmpArr(LBound(tmpArr)), tmpArr(UBound(tmpArr)), "ASF"    'The Value member points to the arguments
-        Next i
-    Else
-        tmpArr() = Split(ASFname(i), ":")
-        StoreUDF UserDefFunctions, tmpArr(LBound(tmpArr)), tmpArr(UBound(tmpArr)), "ASF"
-    End If
-End Sub
-
 Public Sub DeclareUDF(ByRef UDFname As Variant, _
                         Optional ByRef UDFlib As String = "UserDefFunctions", _
                         Optional FunctionType As String = "UDF")
@@ -3240,13 +3294,13 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function FISHF_(F As Double, N1 As Double, N2 As Double) As Double
+Private Function FISHF_(f As Double, N1 As Double, N2 As Double) As Double
     Dim x As Double, th As Double
     Dim A As Double, sth As Double
     Dim cth As Double, c As Double
     Dim k As Double
     
-    x = N2 / (N1 * F + N2)
+    x = N2 / (N1 * f + N2)
     If (REM_(N1, 2) = 0) Then
         FISHF_ = STATCOM(1 - x, N2, N1 + N2 - 4, N2 - 2) * (x ^ (N2 / 2))
         Exit Function
@@ -3255,7 +3309,7 @@ Private Function FISHF_(F As Double, N1 As Double, N2 As Double) As Double
         FISHF_ = 1 - STATCOM(x, N1, N1 + N2 - 4, N1 - 2) * ((1 - x) ^ (N1 / 2))
         Exit Function
     End If
-    th = Atn(Sqr(N1 * F / N2))
+    th = Atn(Sqr(N1 * f / N2))
     A = th / PID2: sth = Sin(th): cth = Cos(th)
     If (N2 > 1) Then
         A = A + sth * cth * STATCOM(cth * cth, 2, N2 - 3, -1) / PID2
@@ -3451,7 +3505,7 @@ Private Function FormatNumeredInteractions(ByRef strPredictorsInterList As Strin
     Dim i As Long
     Dim n As Long
     Dim e As Long
-    Dim F As Long
+    Dim f As Long
     Dim u As String
     Dim v As String
     Dim tmpElem As String
@@ -3467,8 +3521,8 @@ Private Function FormatNumeredInteractions(ByRef strPredictorsInterList As Strin
         v = MidB(tmpPredict(1), 3)
         If Not IsNumeric(u) Or Not IsNumeric(v) Then Exit Function
         e = CLng(MidB(tmpPredict(0), 3))
-        F = CLng(v)
-        If e > F Then
+        f = CLng(v)
+        If e > f Then
             tmpElem = tmpPredict(0)
             tmpPredict(0) = tmpPredict(1)
             tmpPredict(1) = tmpElem
@@ -5337,9 +5391,9 @@ err_Handler:
 End Function
 
 Private Function IsBoolean(ByRef expression As String) As Boolean
-    IsBoolean = (expression = "true")
+    IsBoolean = (expression = d_TrueKW)
     If Not IsBoolean Then
-        IsBoolean = (expression = "false")
+        IsBoolean = (expression = d_FalseKW)
     End If
 End Function
 
@@ -6371,7 +6425,7 @@ Private Function MMult(ByRef expression As String, ByRef fName As String) As Str
     Dim tmpData() As String
     Dim tmpEval As String
     Dim LB As Long, UB As Long
-    Dim tmpOP As Variant
+    Dim tmpOp As Variant
     Dim bIsMatrix As Boolean
     
     On Error GoTo err_Handler
@@ -6383,18 +6437,18 @@ Private Function MMult(ByRef expression As String, ByRef fName As String) As Str
         Case 2
             bIsMatrix = InStrB(1, tmpData(UB), "{{")
             If bIsMatrix Then
-                tmpOP = MMULT_( _
+                tmpOp = MMULT_( _
                                 ToDblArray(ArrayFromString(tmpData(LB))), _
                                 ToDblArray(ArrayFromString(tmpData(UB))))
             Else
-                tmpOP = MMULT_( _
+                tmpOp = MMULT_( _
                                 ToDblArray(ArrayFromString(tmpData(LB))), _
                                 CDbl(tmpData(UB)))
             End If
-            If IsArray(tmpOP) Then
-                tmpEval = ArrayToString(tmpOP)
+            If IsArray(tmpOp) Then
+                tmpEval = ArrayToString(tmpOp)
             Else
-                tmpEval = CStr(tmpOP)
+                tmpEval = CStr(tmpOp)
             End If
         Case Else
             tmpEval = e_ValueError
