@@ -85,10 +85,10 @@ Public Sub Execute(cScope As VBAexpressionsScope)
     
     Select Case Me.TYPE_
     Case S_TYPE.ASSIGNMENT_
-        Set P_STACK_(0).SCOPE_ = cScope.CopyScope(cScope)
+        P_STACK_(0).SCOPE_.CopyScope cScope
         Set P_STACK_(0).expression_.EvalScope = P_STACK_(0).SCOPE_
         P_STACK_(0).RETURNS_ = P_STACK_(0).expression_.Eval()
-        Set P_STACK_(1).SCOPE_ = P_STACK_(0).expression_.EvalScope.CopyScope(P_STACK_(0).SCOPE_)
+        P_STACK_(1).SCOPE_.CopyScope P_STACK_(0).expression_.EvalScope
         For i = 0 To UBound(P_STACK_(1).arguments_)
             P_STACK_(1).SCOPE_.VarValue(P_STACK_(1).arguments_(i)) = CStr(P_STACK_(0).RETURNS_)
         Next i
