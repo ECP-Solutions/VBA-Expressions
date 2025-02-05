@@ -12,7 +12,7 @@ Option Explicit
 Option Base 0
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-' Copyright © 2022-2024 W. García
+' Copyright Â© 2022-2024 W. GarcÃ­a
 ' GPL-3.0 license | https://www.gnu.org/licenses/gpl-3.0.html/
 ' https://ingwilfredogarcia.wordpress.com
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1913,11 +1913,6 @@ Private Sub BottomLevelEval(ByRef aToken As token)
                     tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) Like _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
             End Select
-            If tmpBool Then
-                aToken.EvalResult = d_TrueKW
-            Else
-                aToken.EvalResult = d_FalseKW
-            End If
         Else 'Logical operators
             Dim tmpBooleans() As Boolean
             Select Case aToken.OperationToken
@@ -1931,11 +1926,11 @@ Private Sub BottomLevelEval(ByRef aToken As token)
                     tmpBooleans() = GetLogicalNeg(aToken)
                     tmpBool = tmpBooleans(0) Xor tmpBooleans(1)
             End Select
-            If tmpBool Then
-                aToken.EvalResult = d_TrueKW
-            Else
-                aToken.EvalResult = d_FalseKW
-            End If
+        End If
+        If tmpBool Then
+            aToken.EvalResult = d_TrueKW
+        Else
+            aToken.EvalResult = d_FalseKW
         End If
     End If
     EvalResultSwithc False, aToken
