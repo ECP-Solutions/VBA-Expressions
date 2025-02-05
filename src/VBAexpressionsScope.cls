@@ -25,7 +25,7 @@ Option Base 0
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ' VARIABLES:
 Private e As Double
-Private pi As Double
+Private PI As Double
 Private P_CONSTANTS As ClusterBuffer
 Private P_EXPR_VARIABLES As ClusterBuffer
 Private arrHelper As VBAexpressions
@@ -316,10 +316,13 @@ Public Sub ConstantsInit()
     InitCBbuffer P_CONSTANTS
     '@--------------------------------------------------------------------
     ' Save predefined constants
-    AppendToCBbuffer P_CONSTANTS, "pi", CStr(pi)
+    AppendToCBbuffer P_CONSTANTS, "pi", CStr(PI)
     AppendToCBbuffer P_CONSTANTS, "e", CStr(e)
 End Sub
 
+''' <summary>
+'''    Copies the values of the variables in the current scope if they exist in the source scope.
+''' </summary>
 Public Function CopyScope(ByRef sourceScope As VBAexpressionsScope) As VBAexpressionsScope
     Dim i As Long
     Dim tmpValue As String
@@ -336,6 +339,25 @@ Public Function CopyScope(ByRef sourceScope As VBAexpressionsScope) As VBAexpres
     Next
     Set CopyScope = Me
 End Function
+
+''' <summary>
+'''    Returns a shadow copy of the source scope.
+''' </summary>
+Public Function Clone(ByRef sourceScope As VBAexpressionsScope) As VBAexpressionsScope
+    Dim i As Long
+    Dim tmpValue As String
+    Dim tmpVarName As String
+    
+    If Not sourceScope Is Nothing Then
+        VariablesInit
+        For i = 1 To sourceScope.VariablesCount
+            tmpVarName = sourceScope.VarName(i - 1)
+            VarValue(tmpVarName) = sourceScope.VarValue(i - 1)
+        Next
+    End If
+    Set Clone = Me
+End Function
+
 Private Sub ExpandCBbuffer(ByRef aBuffer As ClusterBuffer)
     aBuffer.Capacity = 2 * (aBuffer.Capacity + 1)
     ReDim Preserve aBuffer.Storage(0 To aBuffer.Capacity - 1)
@@ -392,8 +414,8 @@ Public Function IsConstant(aVarName As String) As Boolean
     IsConstant = GetCBItemIdx(P_CONSTANTS, aVarName) > -1
 End Function
 
-Private Function IsPI(ByRef varName As String) As Boolean
-    IsPI = varName Like "[Pp][Ii]"
+Private Function IsPI(ByRef VarName As String) As Boolean
+    IsPI = VarName Like "[Pp][Ii]"
 End Function
 
 Public Sub VariablesInit()
@@ -411,6 +433,15 @@ Public Function VarIndex(ByRef ItemName As String, _
         VarIndex = GetCBItemIdx(P_CONSTANTS, ItemName)
     End If
 End Function
+
+''' <summary>
+''' Returns the variable name at given index.
+''' </summary>
+Public Function VarName(aIndex As Long) As String
+    If aIndex >= 0 And aIndex <= P_EXPR_VARIABLES.index Then
+        VarName = P_EXPR_VARIABLES.Storage(aIndex).name
+    End If
+End Function
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -418,7 +449,7 @@ End Function
 ''' Initializes this instance.
 ''' </summary>
 Private Sub Class_Initialize()
-    pi = 4 * Atn(1)
+    PI = 4 * Atn(1)
     e = Exp(1)
     ConstantsInit
     VariablesInit
