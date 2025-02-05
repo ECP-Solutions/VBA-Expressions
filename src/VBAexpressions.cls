@@ -757,6 +757,7 @@ Public Function Compile_Assigment(input_Str As String) As ASF_STATEMENT
         With tmpOp
             .TYPE_ = variable_set
             .arguments_ = tmpAssigment(0)
+            Set .SCOPE_ = New VBAexpressionsScope
             .function_id_ = e_NAError
             .level_ = 1
         End With
@@ -4747,9 +4748,9 @@ Private Function GETS(ByRef expression As String, ByRef fName As String) As Stri
             tmpEval = tmpData(UB)
             P_SCOPE.VarValue(FormatLiteralString(tmpData(LB), True)) = tmpData(UB)
         Case 1
-            Dim varName As String
-            varName = FormatLiteralString(tmpData(LB), True)
-            tmpEval = P_SCOPE.VarValue(varName)
+            Dim VarName As String
+            VarName = FormatLiteralString(tmpData(LB), True)
+            tmpEval = P_SCOPE.VarValue(VarName)
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
@@ -7050,8 +7051,8 @@ Private Function NORM_(z As Double) As Double
     End If
 End Function
 
-Private Function NotIsPI(ByRef varName As String) As Boolean
-    NotIsPI = Not varName Like "[Pp][Ii]"
+Private Function NotIsPI(ByRef VarName As String) As Boolean
+    NotIsPI = Not VarName Like "[Pp][Ii]"
 End Function
 
 Private Function Now_(ByRef expression As String, ByRef fName As String) As String
@@ -8089,17 +8090,17 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function ReservedToken(ByRef varName As String) As Boolean
+Private Function ReservedToken(ByRef VarName As String) As Boolean
     ReservedToken = True
-    If Not IsBoolean(LCase$(varName)) Then 'Exclude logical values
-        If IsLikeSciNot(varName) Then ' Like "E#*"
-            If Not IsDigit(MidB$(varName, LenB(varName) - 1)) Then 'Exclude Sci notation exp
-                If Not AscW(varName) = 69 Then  'Exclude Sci notation token E
+    If Not IsBoolean(LCase$(VarName)) Then 'Exclude logical values
+        If IsLikeSciNot(VarName) Then ' Like "E#*"
+            If Not IsDigit(MidB$(VarName, LenB(VarName) - 1)) Then 'Exclude Sci notation exp
+                If Not AscW(VarName) = 69 Then  'Exclude Sci notation token E
                     ReservedToken = False
                 End If
             End If
         Else
-            If Not AscW(varName) = 69 Then  'Exclude Sci notation token E
+            If Not AscW(VarName) = 69 Then  'Exclude Sci notation token E
                 ReservedToken = False
             End If
         End If
