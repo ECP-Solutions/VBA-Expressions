@@ -12,7 +12,7 @@ Option Explicit
 Option Base 0
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-' Copyright Â© 2022-2024 W. GarcÃ­a
+' Copyright © 2022-2025 W. García
 ' GPL-3.0 license | https://www.gnu.org/licenses/gpl-3.0.html/
 ' https://ingwilfredogarcia.wordpress.com
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -710,6 +710,8 @@ Public Function ReadASFfile(filePath As String) As String()
     Dim fLen As Long
     Dim Buffer As String
     Dim tmpStr As String
+    Dim tmpResult() As String
+    Dim i As Long
     
     FileHandled = FreeFile
     Open filePath For Binary As #FileHandled
@@ -718,7 +720,11 @@ Public Function ReadASFfile(filePath As String) As String()
     Get #FileHandled, , Buffer
     Close #FileHandled
     tmpStr = Replace(Trim(Buffer), vbCr, vbNullString)
-    ReadASFfile = Split(ReconstructLiteralStrings(tmpStr, RemoveExtraSpaces(Replace(Trim(Buffer), vbCr, vbNullString))), vbLf)
+    tmpResult() = Split(ReconstructLiteralStrings(tmpStr, RemoveExtraSpaces(tmpStr)), vbLf)
+    For i = LBound(tmpResult) To UBound(tmpResult)
+        tmpResult(i) = Trim(tmpResult(i))
+    Next i
+    ReadASFfile = tmpResult
 End Function
 Public Sub DeclareASF(ByRef ASFname As Variant)
     Dim tmpArr() As String
@@ -1925,6 +1931,11 @@ Private Sub BottomLevelEval(ByRef aToken As token)
                     tmpBool = CastOPtype(aToken.Arg1.Operand, aToken.Arg1.NegationFlagOn) Like _
                                         CastOPtype(aToken.Arg2.Operand, aToken.Arg2.NegationFlagOn)
             End Select
+            If tmpBool Then
+                aToken.EvalResult = d_TrueKW
+            Else
+                aToken.EvalResult = d_FalseKW
+            End If
         Else 'Logical operators
             Dim tmpBooleans() As Boolean
             Select Case aToken.OperationToken
@@ -1938,11 +1949,11 @@ Private Sub BottomLevelEval(ByRef aToken As token)
                     tmpBooleans() = GetLogicalNeg(aToken)
                     tmpBool = tmpBooleans(0) Xor tmpBooleans(1)
             End Select
-        End If
-        If tmpBool Then
-            aToken.EvalResult = d_TrueKW
-        Else
-            aToken.EvalResult = d_FalseKW
+            If tmpBool Then
+                aToken.EvalResult = d_TrueKW
+            Else
+                aToken.EvalResult = d_FalseKW
+            End If
         End If
     End If
     EvalResultSwithc False, aToken
