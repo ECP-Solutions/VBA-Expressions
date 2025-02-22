@@ -1,0 +1,50 @@
+Private Function ClassifyStatement(ASFarray() As String, entryLine As Long) As S_TYPE
+    Dim i As Long
+    Dim lineLen As Long
+    Dim ASCIIcode As Long
+    Dim foundEnd As Boolean
+    Dim statementStr As String
+    
+    lineLen = Len(ASFarray(entryLine))
+    Do
+        i = i + 1
+        ASCIIcode = AscW(Mid(ASFarray(entryLine), i, 1))
+        Select Case ASCIIcode
+        Case 32, 97 To 122
+            foundEnd = False
+        Case Else
+            foundEnd = True
+        End Select
+    Loop While i < lineLen And Not foundEnd
+    If AscW(ASFarray(entryLine)) = 123 Then 'Clipping {
+        statementStr = Mid(ASFarray(entryLine), 2, i - 1)
+    Else
+        statementStr = Mid(ASFarray(entryLine), 1, i)
+    End If
+    Select Case Trim(statementStr)
+    Case "if"
+        ClassifyStatement = S_TYPE.S_IF_
+    Case "else"
+        ClassifyStatement = S_TYPE.S_ELSE_
+    Case "else if"
+        ClassifyStatement = S_TYPE.S_ELSE_IF_
+    Case "for"
+        ClassifyStatement = S_TYPE.S_FOR_LOOP_
+    Case "while"
+        ClassifyStatement = S_TYPE.S_WHILE_LOOP_
+    Case "switch"
+        ClassifyStatement = S_TYPE.S_SWITCH_
+    Case "try"
+        ClassifyStatement = S_TYPE.S_TRY_CATCH_
+    Case "return"
+        ClassifyStatement = S_TYPE.S_RETURN_
+    Case Else
+        If InStrB(1, statementStr, op_equal) Then
+            If InStrB(1, Split(statementStr, op_equal_), op_equal) Then
+                ClassifyStatement = S_TYPE.S_ASSIGNMENT_
+            Else
+                ClassifyStatement = S_TYPE.S_NULL_
+            End If
+        End If
+    End Select
+End Function
