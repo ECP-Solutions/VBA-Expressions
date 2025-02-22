@@ -25,13 +25,17 @@ Public Enum ARGUMENT_TYPE
     T_ARRAY = 2
 End Enum
 Public Enum S_TYPE
-    ASSIGNMENT_ = 0
-    IF_ = 1
-    ELSE_ = 2
-    ELSE_IF_ = 3
-    FOR_LOOP_ = 4
-    WHILE_LOOP_ = 5
-    TRY_CATCH_ = 6
+    S_NULL_ = -1
+    S_ASSIGNMENT_ = 0
+    S_IF_ = 1
+    S_ELSE_ = 2
+    S_ELSE_IF_ = 3
+    S_FOR_LOOP_ = 4
+    S_WHILE_LOOP_ = 5
+    S_TRY_CATCH_ = 6
+    S_SWITCH_ = 7
+    S_RETURN_ = 8
+    S_FUNCTION_DEF_ = 9
 End Enum
 Public Property Get ID_() As String
     ID_ = P_ID_
