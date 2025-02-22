@@ -784,6 +784,88 @@ Private Function RemoveExtraSpaces(codeStr As String) As String
     Loop
     RemoveExtraSpaces = tmpStr
 End Function
+Public Function GetStatementDescription(tStatement As S_TYPE) As String
+    Select Case tStatement
+    Case S_TYPE.S_ASSIGNMENT_
+        GetStatementDescription = "ASSIGNMENT"
+    Case S_TYPE.S_IF_
+        GetStatementDescription = "IF BLOCK"
+    Case S_TYPE.S_ELSE_
+        GetStatementDescription = "ELSE BLOCK"
+    Case S_TYPE.S_ELSE_IF_
+        GetStatementDescription = "ELSE IF BLOCK"
+    Case S_TYPE.S_FOR_LOOP_
+        GetStatementDescription = "FOR LOOP"
+    Case S_TYPE.S_SWITCH_
+        GetStatementDescription = "SWITCH BLOCK"
+    Case S_TYPE.S_WHILE_LOOP_
+        GetStatementDescription = "WHILE LOOP"
+    Case S_TYPE.S_TRY_CATCH_
+        GetStatementDescription = "TRY CATCH"
+    Case S_TYPE.S_FUNCTION_DEF_
+        GetStatementDescription = "FUNCTION DEF"
+    Case S_TYPE.S_RETURN_
+        GetStatementDescription = "RETURN"
+    Case S_TYPE.S_NULL_
+        GetStatementDescription = "NULL"
+    End Select
+End Function
+Public Function ClassifyStatement(ASFarray() As String, entryLine As Long) As S_TYPE
+    Dim i As Long
+    Dim lineLen As Long
+    Dim ASCIIcode As Long
+    Dim foundEnd As Boolean
+    Dim statementStr As String
+    Dim rclyPos As Long
+    
+    lineLen = Len(ASFarray(entryLine))
+    Do
+        i = i + 1
+        ASCIIcode = AscW(Mid(ASFarray(entryLine), i, 1))
+        Select Case ASCIIcode
+        Case 32, 97 To 122, 125
+            foundEnd = False
+        Case Else
+            foundEnd = True
+        End Select
+    Loop While i < lineLen And Not foundEnd
+    rclyPos = InStr(1, ASFarray(entryLine), d_rCurly)
+    If rclyPos And rclyPos + 1 < lineLen Then 'Clipping }
+        statementStr = Mid(ASFarray(entryLine), rclyPos + 1, i - (rclyPos + 1))
+    Else
+        statementStr = Mid(ASFarray(entryLine), 1, i - 1)
+    End If
+    Select Case Trim(statementStr)
+    Case "if"
+        ClassifyStatement = S_TYPE.S_IF_
+    Case "else"
+        ClassifyStatement = S_TYPE.S_ELSE_
+    Case "else if"
+        ClassifyStatement = S_TYPE.S_ELSE_IF_
+    Case "for"
+        ClassifyStatement = S_TYPE.S_FOR_LOOP_
+    Case "while"
+        ClassifyStatement = S_TYPE.S_WHILE_LOOP_
+    Case "switch"
+        ClassifyStatement = S_TYPE.S_SWITCH_
+    Case "try"
+        ClassifyStatement = S_TYPE.S_TRY_CATCH_
+    Case Else
+        If statementStr Like "fun *" Then
+            ClassifyStatement = S_TYPE.S_FUNCTION_DEF_
+        ElseIf statementStr Like "return *" Then
+            ClassifyStatement = S_TYPE.S_RETURN_
+        ElseIf InStrB(1, ASFarray(entryLine), op_equal) Then
+            If InStrB(1, Join(Split(ASFarray(entryLine), op_equal_), vbNullString), op_equal) Then
+                ClassifyStatement = S_TYPE.S_ASSIGNMENT_
+            Else
+                ClassifyStatement = S_TYPE.S_NULL_
+            End If
+        Else
+            ClassifyStatement = S_TYPE.S_NULL_
+        End If
+    End Select
+End Function
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 Private Function aCeiling(ByRef expression As String, ByRef fName As String) As String
