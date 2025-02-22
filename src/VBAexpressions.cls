@@ -807,7 +807,7 @@ Public Function GetStatementDescription(tStatement As S_TYPE) As String
     Case S_TYPE.S_RETURN_
         GetStatementDescription = "RETURN"
     Case S_TYPE.S_NULL_
-        GetStatementDescription = "NULL"
+        GetStatementDescription = "BLOCK END"
     End Select
 End Function
 Public Function ClassifyStatement(ASFarray() As String, entryLine As Long) As S_TYPE
