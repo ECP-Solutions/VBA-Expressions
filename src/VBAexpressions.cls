@@ -153,6 +153,7 @@ Private Const d_lSquareB As String = "["
 Private Const d_rSquareB As String = "]"
 Private Const d_Apostrophe As String = "'"
 Private Const d_Space As String = " "
+Private Const d_DSpace As String = "  "
 Private Const d_Semicolon As String = ";"
 Private Const d_FalseKW As String = "false"
 Private Const d_TrueKW As String = "true"
@@ -708,6 +709,7 @@ Public Function ReadASFfile(filePath As String) As String()
     Dim FileHandled As Long
     Dim fLen As Long
     Dim Buffer As String
+    Dim tmpStr As String
     
     FileHandled = FreeFile
     Open filePath For Binary As #FileHandled
@@ -715,7 +717,8 @@ Public Function ReadASFfile(filePath As String) As String()
     Buffer = Space$(fLen)
     Get #FileHandled, , Buffer
     Close #FileHandled
-    ReadASFfile = Split(Replace(Trim(Buffer), vbCr, vbNullString), vbLf)
+    tmpStr = Replace(Trim(Buffer), vbCr, vbNullString)
+    ReadASFfile = Split(ReconstructLiteralStrings(tmpStr, RemoveExtraSpaces(Replace(Trim(Buffer), vbCr, vbNullString))), vbLf)
 End Function
 Public Sub DeclareASF(ByRef ASFname As Variant)
     Dim tmpArr() As String
@@ -765,6 +768,15 @@ Public Function Compile_Assigment(input_Str As String) As ASF_STATEMENT
         Set tmpResult = Nothing
     End If
     Set Compile_Assigment = tmpResult
+End Function
+Private Function RemoveExtraSpaces(codeStr As String) As String
+    Dim tmpStr As String
+    
+    tmpStr = Replace(codeStr, vbTab, d_DSpace)
+    Do While InStrB(1, tmpStr, d_DSpace)
+        tmpStr = Replace(tmpStr, d_DSpace, d_Space)
+    Loop
+    RemoveExtraSpaces = tmpStr
 End Function
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
 '#############################%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%####################################################################
@@ -1603,7 +1615,7 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
     Dim fpmin As Double
     Dim m As Long
     Dim M2 As Long
-    Dim aa As Double, c As Double
+    Dim aa As Double, C As Double
     Dim d As Double, del As Double
     Dim H As Double, qab As Double
     Dim qam As Double, qap As Double
@@ -1613,7 +1625,7 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
 
 '   // These q's will be used in factors that occur in the coefficients
     qab = A + B: qap = A + 1: qam = A - 1
-    c = 1: d = 1 - qab * x / qap
+    C = 1: d = 1 - qab * x / qap
     If Abs(d) < fpmin Then d = fpmin
     d = 1 / d
     H = d
@@ -1623,16 +1635,16 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
 '       // One step (the even one) of the recurrence
         d = 1 + aa * d
         If Abs(d) < fpmin Then d = fpmin
-        c = 1 + aa / c
-        If Abs(c) < fpmin Then c = fpmin
-        d = 1 / d: H = H * d * c
+        C = 1 + aa / C
+        If Abs(C) < fpmin Then C = fpmin
+        d = 1 / d: H = H * d * C
         aa = -(A + m) * (qab + m) * x / ((A + M2) * (qap + M2))
 '       // Next step of the recurrence (the odd one)
         d = 1 + aa * d
         If Abs(d) < fpmin Then d = fpmin
-        c = 1 + aa / c
-        If Abs(c) < fpmin Then c = fpmin
-        d = 1 / d: del = d * c
+        C = 1 + aa / C
+        If Abs(C) < fpmin Then C = fpmin
+        d = 1 / d: del = d * C
         H = H * del
         If Abs(del - 1#) < 0.0000003 Then Exit Do
         m = m + 1
@@ -3298,7 +3310,7 @@ End Function
 Private Function FISHF_(f As Double, N1 As Double, N2 As Double) As Double
     Dim x As Double, th As Double
     Dim A As Double, sth As Double
-    Dim cth As Double, c As Double
+    Dim cth As Double, C As Double
     Dim k As Double
     
     x = N2 / (N1 * f + N2)
@@ -3316,14 +3328,14 @@ Private Function FISHF_(f As Double, N1 As Double, N2 As Double) As Double
         A = A + sth * cth * STATCOM(cth * cth, 2, N2 - 3, -1) / PID2
     End If
     If (N1 = 1) Then FISHF_ = 1 - A: Exit Function
-    c = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / PI
-    If (N2 = 1) Then FISHF_ = 1 - A + c / 2: Exit Function
+    C = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / PI
+    If (N2 = 1) Then FISHF_ = 1 - A + C / 2: Exit Function
     k = 2
     Do While (k <= (N2 - 1) / 2)
-        c = c * k / (k - 0.5)
+        C = C * k / (k - 0.5)
         k = k + 1
     Loop
-    FISHF_ = 1 - A + c
+    FISHF_ = 1 - A + C
 End Function
 
 ''' <summary>
@@ -3636,7 +3648,7 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
                         Optional epsilon As Double = 0.0000000001) As String
     Dim absFC As Double, absFD As Double
     Dim aZero As Double
-    Dim c As Double, d As Double   'Intermediate points |a---:c:----:d:---b|
+    Dim C As Double, d As Double   'Intermediate points |a---:c:----:d:---b|
     Dim evalCounter As Long
     Dim fa As Double, fb As Double
     Dim fc As Double, fd As Double
@@ -3681,10 +3693,10 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
         Do
             'Divide the interval into three segments, assumes a < b
             segmentLen = (B - A) / 3
-            c = A + segmentLen
+            C = A + segmentLen
             d = B - segmentLen
             'Evaluate the function at c, d
-            .VarValue(tmpVar(varIdx)) = c
+            .VarValue(tmpVar(varIdx)) = C
             fc = CDbl(.Eval): evalCounter = evalCounter + 1
             .VarValue(tmpVar(varIdx)) = d
             fd = CDbl(.Eval): evalCounter = evalCounter + 1
@@ -3692,10 +3704,10 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
                 Exit Do
             End If
             If fa * fc < 0 Then 'Root in interval a-c
-                B = c
+                B = C
                 fb = fc
             ElseIf fc * fd < 0 Then
-                A = c
+                A = C
                 fa = fc
                 B = d
                 fb = fd
@@ -3716,7 +3728,7 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
             k = k + 1
         Loop While toleranceFlag And k < 100
         If absFC < absFD Then
-            tmpResult = c
+            tmpResult = C
             tmpFzeroEval = fc
         Else
             tmpResult = d
@@ -3756,7 +3768,7 @@ Private Function fZeroMRF(ByRef aFunction As String, ByVal A As Double, _
                         Optional includeVarNames As Boolean = True, _
                         Optional printDebugINFO As Boolean = False) As String
     Dim aZero As Double
-    Dim c As Double, d As Double
+    Dim C As Double, d As Double
     Dim evalCounter As Long
     Dim fa As Double, fb As Double
     Dim fc As Double, fd As Double
@@ -3797,13 +3809,13 @@ Private Function fZeroMRF(ByRef aFunction As String, ByVal A As Double, _
             .VarValue(tmpVar(varIdx)) = B
             fb = CDbl(.Eval): evalCounter = evalCounter + 1
             'Compute approximation point of the root
-            c = (A * fb - B * fa) / (fb - fa)
+            C = (A * fb - B * fa) / (fb - fa)
             'Evaluate the function at approximation
-            .VarValue(tmpVar(varIdx)) = c
+            .VarValue(tmpVar(varIdx)) = C
             fc = CDbl(.Eval): evalCounter = evalCounter + 1
             If fa * fc < 0 Then 'Root in interval a-c
                 'Projection
-                CK = Abs(2 * fc / (B - c))
+                CK = Abs(2 * fc / (B - C))
                 d = ((1 + CK) * A * fb - B * fa) / ((1 + CK) * fb - fa)
                 'Evaluate the function at projection
                 .VarValue(tmpVar(varIdx)) = d
@@ -3811,18 +3823,18 @@ Private Function fZeroMRF(ByRef aFunction As String, ByVal A As Double, _
                 If fd * fa < 0 Then
                     B = d
                 Else
-                    B = c
+                    B = C
                     A = d
                 End If
             ElseIf fa * fc > 0 Then
-                CK = Abs(0.5 * fc / (B - c))
+                CK = Abs(0.5 * fc / (B - C))
                 d = ((1 + CK) * B * fa - A * fb) / ((1 + CK) * fa - fb)
                 .VarValue(tmpVar(varIdx)) = d
                 fd = CDbl(.Eval): evalCounter = evalCounter + 1
                 If fd * fa > 0 Then
                     A = d
                 Else
-                    A = c
+                    A = C
                     B = d
                 End If
             End If
@@ -6470,7 +6482,7 @@ Private Function MMULT_(ByRef A() As Double, ByRef B As Variant) As Variant
     Dim bIsVector As Boolean
     Dim bLB As Long, bLB2 As Long
     Dim bUB As Long, bUB2 As Long
-    Dim c() As Double
+    Dim C() As Double
     Dim i As Long
     Dim j As Long, jj As Long
     Dim m As Long
@@ -6498,39 +6510,39 @@ Private Function MMULT_(ByRef A() As Double, ByRef B As Variant) As Variant
             If aIsVector Then
                 aLB = LBound(A): aUB = UBound(A)
                 m = aUB - aLB + 1
-                ReDim c(0 To m - 1)
+                ReDim C(0 To m - 1)
                 For i = 0 To m - 1
-                    c(i) = A(aLB + i) * B
+                    C(i) = A(aLB + i) * B
                 Next i
             Else
                 aLB = LBound(A): aUB = UBound(A)
                 aLB2 = LBound(A, 2): aUB2 = UBound(A, 2)
                 n = aUB - aLB + 1
                 m = aUB2 - aLB2 + 1
-                ReDim c(0 To n - 1, 0 To m - 1)
+                ReDim C(0 To n - 1, 0 To m - 1)
                 For i = 0 To n - 1
                     For j = 0 To m - 1
-                        c(i, j) = A(aLB + i, aLB2 + j) * B
+                        C(i, j) = A(aLB + i, aLB2 + j) * B
                     Next j
                 Next i
             End If
         End If
     ElseIf aIsVector And IsArray(B) Then '1D array x 2D array
         VM_DOT_ A, B, aLB, aLB2, aUB, _
-                aUB2, bLB2, bUB2, c, i, j, _
+                aUB2, bLB2, bUB2, C, i, j, _
                 m, n, pSum, bLB, bUB, jj
     ElseIf Not aIsVector And Not bIsVector Then '2D array x 2D array
         MM_DOT_ A, B, aLB, aLB2, aUB, _
                 aUB2, bLB, bLB2, bUB, _
-                bUB2, c, i, j, jj, m, n, pSum
+                bUB2, C, i, j, jj, m, n, pSum
     ElseIf Not aIsVector And bIsVector Then '2D array x 1D array
         MV_DOT_ A, B, aLB, aLB2, aUB, _
                 aUB2, bLB, bLB2, bUB, _
-                bUB2, c, i, j, jj, m, n, pSum
+                bUB2, C, i, j, jj, m, n, pSum
     End If
     If OutputIsArray Then
-        If IsArrayAllocated(c) Then
-            MMULT_ = c
+        If IsArrayAllocated(C) Then
+            MMULT_ = C
         Else
             MMULT_ = e_ValueError
         End If
@@ -6541,7 +6553,7 @@ End Function
 
 Private Sub MM_DOT_(ByRef A() As Double, ByRef B As Variant, ByRef aLB As Long, ByRef aLB2 As Long, ByRef aUB As Long, _
                     ByRef aUB2 As Long, ByRef bLB As Long, ByRef bLB2 As Long, ByRef bUB As Long, ByRef bUB2 As Long, _
-                    ByRef c() As Double, ByRef i As Long, ByRef j As Long, ByRef jj As Long, ByRef m As Long, _
+                    ByRef C() As Double, ByRef i As Long, ByRef j As Long, ByRef jj As Long, ByRef m As Long, _
                     ByRef n As Long, ByRef pSum As Double)
                     
     aLB = LBound(A): aUB = UBound(A)
@@ -6551,14 +6563,14 @@ Private Sub MM_DOT_(ByRef A() As Double, ByRef B As Variant, ByRef aLB As Long, 
     n = aUB - aLB + 1
     m = bUB2 - bLB2 + 1
     If Not (aUB2 - aLB2 + 1) <> (bUB - bLB + 1) Then
-        ReDim c(0 To n - 1, 0 To m - 1)
+        ReDim C(0 To n - 1, 0 To m - 1)
         For i = 0 To n - 1
             For j = 0 To m - 1
                 pSum = 0
                 For jj = 0 To aUB2 - aLB2
                     pSum = pSum + A(aLB + i, aLB2 + jj) * B(bLB + jj, bLB2 + j)
                 Next jj
-                c(i, j) = pSum
+                C(i, j) = pSum
             Next j
         Next i
     End If
@@ -6790,7 +6802,7 @@ End Function
 
 Private Function MSum_(ByRef A() As Double, ByRef B() As Double, _
                         Optional Difference As Boolean = False) As Double()
-    Dim c() As Double
+    Dim C() As Double
     Dim LBa As Long
     Dim LBa2 As Long
     Dim UBb As Long
@@ -6816,7 +6828,7 @@ Private Function MSum_(ByRef A() As Double, ByRef B() As Double, _
         LBb2 = LBound(B, 2)
         If UBb - LBb + 1 <> n Then Exit Function    'Required equal numbers of rows
         If UBound(B, 2) - LBb2 + 1 <> m Then Exit Function     'Required equal numbers of columns
-        ReDim c(0 To n - 1, 0 To m - 1)
+        ReDim C(0 To n - 1, 0 To m - 1)
         For i = 0 To n - 1
             For j = 0 To m - 1
                 If Not Difference Then
@@ -6824,21 +6836,21 @@ Private Function MSum_(ByRef A() As Double, ByRef B() As Double, _
                 Else
                     pSum = A(i + LBa, j + LBa2) - B(i + LBb, j + LBb2)
                 End If
-                c(i, j) = pSum
+                C(i, j) = pSum
             Next j
         Next i
     Else
         If Not aFlag And Not bFlag Then 'Two vectors
             n = UBound(A) - LBa + 1
             If UBb - LBb + 1 <> n Then Exit Function
-            ReDim c(0 To n - 1)
+            ReDim C(0 To n - 1)
             For i = 0 To n - 1
                 If Not Difference Then
                     pSum = A(i + LBa) + B(i + LBb)
                 Else
                     pSum = A(i + LBa) - B(i + LBb)
                 End If
-                c(i) = pSum
+                C(i) = pSum
             Next i
         Else 'One vector and one 2D matrix
             Dim M2D() As Double
@@ -6873,7 +6885,7 @@ Private Function MSum_(ByRef A() As Double, ByRef B() As Double, _
             If ub2M2D - lbM2D + 1 = 1 Then 'Vector expressed as 2d matrix
                 n = ubV1D - lbV1D + 1
                 If ubM2D - lbM2D + 1 <> n Then Exit Function
-                ReDim c(0 To n - 1)
+                ReDim C(0 To n - 1)
                 For i = 0 To n - 1
                     If Not Difference Then
                         pSum = M2D(i + lbM2D, lb2M2D) + VECT1D(i + lbV1D)
@@ -6884,12 +6896,12 @@ Private Function MSum_(ByRef A() As Double, ByRef B() As Double, _
                             pSum = VECT1D(i + lbV1D) - M2D(i + lbM2D, lb2M2D)
                         End If
                     End If
-                    c(i) = pSum
+                    C(i) = pSum
                 Next i
             End If
         End If
     End If
-    MSum_ = c
+    MSum_ = C
 End Function
 
 ''' <summary>
@@ -6923,7 +6935,7 @@ err_Handler:
 End Function
 
 Private Function MTranspose_(ByRef A() As Double) As Double()
-    Dim c() As Double
+    Dim C() As Double
     Dim LBa As Long
     Dim LBa2 As Long
     Dim UBa As Long
@@ -6949,22 +6961,22 @@ Private Function MTranspose_(ByRef A() As Double) As Double()
 
     n = UBa - LBa + 1
     m = UBa2 - LBa2 + 1
-    ReDim c(0 To m - 1, 0 To n - 1)
+    ReDim C(0 To m - 1, 0 To n - 1)
     For i = 0 To n - 1
         For j = 0 To m - 1
             If Not Is1Darray Then
-                c(j, i) = A(LBa + i, LBa2 + j)
+                C(j, i) = A(LBa + i, LBa2 + j)
             Else
-                c(j, i) = A(LBa + j)
+                C(j, i) = A(LBa + j)
             End If
         Next j
     Next i
-    MTranspose_ = c
+    MTranspose_ = C
 End Function
 
 Private Sub MV_DOT_(ByRef A() As Double, ByVal B As Variant, ByVal aLB As Long, ByVal aLB2 As Long, _
                     ByVal aUB As Long, ByVal aUB2 As Long, ByVal bLB As Long, ByVal bLB2 As Long, _
-                    ByVal bUB As Long, ByVal bUB2 As Long, ByRef c() As Double, ByVal i As Long, _
+                    ByVal bUB As Long, ByVal bUB2 As Long, ByRef C() As Double, ByVal i As Long, _
                     ByVal j As Long, ByVal jj As Long, ByVal m As Long, ByVal n As Long, ByRef pSum As Double)
                     
     aLB = LBound(A): aUB = UBound(A)
@@ -6974,14 +6986,14 @@ Private Sub MV_DOT_(ByRef A() As Double, ByVal B As Variant, ByVal aLB As Long, 
     n = aUB - aLB + 1
     m = bUB2 - bLB2 + 1
     If Not (aUB2 - aLB2 + 1) <> (bUB - bLB + 1) Then
-        ReDim c(0 To n - 1, 0 To m - 1)
+        ReDim C(0 To n - 1, 0 To m - 1)
         For i = 0 To n - 1
             For j = 0 To m - 1
                 pSum = 0
                 For jj = 0 To aUB2 - aLB2
                     pSum = pSum + A(aLB + i, aLB2 + jj) * B(bLB2 + j)
                 Next jj
-                c(i, j) = pSum
+                C(i, j) = pSum
             Next j
         Next i
     End If
@@ -9086,12 +9098,12 @@ End Function
 
 Private Function ValidTree() As Boolean
     Dim B As Long
-    Dim c As Long
+    Dim C As Long
     Dim t As Long
     Dim tmpResult As Boolean
     
     B = LBound(EvalTree)
-    c = UBound(EvalTree)
+    C = UBound(EvalTree)
     Do                        'Loop all subexpressions
         t = 0
         Do                    'Loop all tokens
@@ -9108,7 +9120,7 @@ Private Function ValidTree() As Boolean
             t = t + 1
         Loop While t <= EvalTree(B).index And tmpResult
         B = B + 1
-    Loop While B <= c And tmpResult
+    Loop While B <= C And tmpResult
     If Not tmpResult Then
         BuildErrMessage errSyntaxError, "Misplaced operators have been found. Please check and try again."
     End If
@@ -9167,7 +9179,7 @@ End Sub
 
 Private Sub VM_DOT_(ByRef A() As Double, ByRef B As Variant, ByRef aLB As Long, ByRef aLB2 As Long, _
                     ByRef aUB As Long, ByRef aUB2 As Long, ByRef bLB2 As Long, ByRef bUB2 As Long, _
-                    ByRef c() As Double, ByRef i As Long, ByRef j As Long, ByRef m As Long, _
+                    ByRef C() As Double, ByRef i As Long, ByRef j As Long, ByRef m As Long, _
                     ByRef n As Long, ByRef pSum As Double, ByRef bLB As Long, ByRef bUB As Long, ByRef jj As Long)
                     
     aLB = 0: aUB = 0
@@ -9177,14 +9189,14 @@ Private Sub VM_DOT_(ByRef A() As Double, ByRef B As Variant, ByRef aLB As Long, 
     n = aUB - aLB + 1
     m = bUB2 - bLB2 + 1
     If Not (aUB2 - aLB2 + 1) <> (bUB - bLB + 1) Then
-        ReDim c(0 To n - 1, 0 To m - 1)
+        ReDim C(0 To n - 1, 0 To m - 1)
         For i = 0 To n - 1
             For j = 0 To m - 1
                 pSum = 0
                 For jj = 0 To aUB2 - aLB2        'Loop a() columns
                     pSum = pSum + A(aLB + jj) * B(bLB + jj, bLB2 + j)
                 Next jj
-                c(i, j) = pSum
+                C(i, j) = pSum
             Next j
         Next i
     End If
