@@ -851,7 +851,7 @@ Public Function ClassifyStatement(ASFarray() As String, entryLine As Long) As S_
     Case "try"
         ClassifyStatement = S_TYPE.S_TRY_CATCH_
     Case Else
-        If statementStr Like "fun *" Then
+        If statementStr Like "function *" Then
             ClassifyStatement = S_TYPE.S_FUNCTION_DEF_
         ElseIf statementStr Like "return *" Then
             ClassifyStatement = S_TYPE.S_RETURN_
