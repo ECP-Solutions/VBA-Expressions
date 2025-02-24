@@ -720,7 +720,7 @@ Public Function ReadASFfile(filePath As String) As String()
     Get #FileHandled, , Buffer
     Close #FileHandled
     tmpStr = Replace(Trim(Buffer), vbCr, vbNullString)
-    tmpResult() = Split(ReconstructLiteralStrings(tmpStr, RemoveExtraSpaces(tmpStr)), vbLf)
+    tmpResult() = Split(ReconstructLiteralStrings(tmpStr, LCase(RemoveExtraSpaces(tmpStr))), vbLf)
     For i = LBound(tmpResult) To UBound(tmpResult)
         tmpResult(i) = Trim(tmpResult(i))
     Next i
