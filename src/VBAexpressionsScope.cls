@@ -38,7 +38,7 @@ Private Type ClusterItem
     name As String
     value As String
     value2 As Variant 'Array representation for the value
-    js_ObjectValue As Variant 'For JavaScript like objects support
+    js_ObjectValue As VBAexpressionsScope 'For JavaScript like objects support
     IsArray As Boolean
     IsJSObject As Boolean 'Sets to True for JavaScript object allocation
     Assigned As Boolean
