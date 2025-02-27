@@ -40,6 +40,8 @@ Private Type ClusterItem
     value2 As Variant 'Array representation for the value
     js_objProperties As VBAexpressionsScope 'For JavaScript like objects support
     IsArray As Boolean
+    IsFunction As Boolean 'True for evaluable script functions or ASFs.
+    script As Variant 'Evaluable ASF function
     IsJSobject As Boolean 'Sets to True for JavaScript object allocation
     Assigned As Boolean
 End Type
