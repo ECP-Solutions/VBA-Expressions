@@ -291,17 +291,19 @@ End Sub
 ''' Assigns the array for the given variable
 ''' </summary>
 Public Sub AllocateArray(aVarKey As Variant, aArray As Variant)
-    If Not IsNumeric(aVarKey) Then
-        Dim ValueIdx As Long
-    
-        ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
-        If ValueIdx > -1 Then
-            P_EXPR_VARIABLES.Storage(ValueIdx).value2 = aArray
+    If IsArray(aArray) Then
+        If Not IsNumeric(aVarKey) Then
+            Dim ValueIdx As Long
+        
+            ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
+            If ValueIdx > -1 Then
+                P_EXPR_VARIABLES.Storage(ValueIdx).value2 = aArray
+                P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
+            End If
+        Else
+            P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2 = aArray
             P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
         End If
-    Else
-        P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2 = aArray
-        P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
     End If
 End Sub
 
@@ -396,16 +398,20 @@ End Sub
 ''' <summary>
 ''' Returns the assigned array for the given variable if any
 ''' </summary>
-Public Function GetAssignedArray(aVarKey As Variant) As Variant
+Public Function GetAllocatedArray(aVarKey As Variant) As Variant
     If Not IsNumeric(aVarKey) Then
         Dim ValueIdx As Long
     
         ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
         If ValueIdx > -1 Then
-            GetAssignedArray = P_EXPR_VARIABLES.Storage(ValueIdx).value2
+            If P_EXPR_VARIABLES.Storage(ValueIdx).IsArray Then
+                GetAllocatedArray = P_EXPR_VARIABLES.Storage(ValueIdx).value2
+            End If
         End If
     Else
-        GetAssignedArray = P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2
+        If P_EXPR_VARIABLES.Storage(CLng(aVarKey)).IsArray Then
+            GetAllocatedArray = P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2
+        End If
     End If
 End Function
 Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As String) As Long
