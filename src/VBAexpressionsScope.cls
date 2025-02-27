@@ -287,6 +287,24 @@ Public Sub AddVariable(ByRef variable As String, ByRef aKey As String)
     End If
 End Sub
 
+''' <summary>
+''' Assigns the array for the given variable
+''' </summary>
+Public Sub AllocateArray(aVarKey As Variant, aArray As Variant)
+    If Not IsNumeric(aVarKey) Then
+        Dim ValueIdx As Long
+    
+        ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
+        If ValueIdx > -1 Then
+            P_EXPR_VARIABLES.Storage(ValueIdx).value2 = aArray
+            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
+        End If
+    Else
+        P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2 = aArray
+        P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
+    End If
+End Sub
+
 Private Sub AppendToCBbuffer(ByRef aBuffer As ClusterBuffer, ByRef ItemName As String, Optional ByRef ItemValue As String = vbNullString)
     aBuffer.index = aBuffer.index + 1
     On Error GoTo BufferAppend_errHandler
@@ -375,6 +393,21 @@ Public Sub FillPredefinedVars()
         End If
     Next i
 End Sub
+''' <summary>
+''' Returns the assigned array for the given variable if any
+''' </summary>
+Public Function GetAssignedArray(aVarKey As Variant) As Variant
+    If Not IsNumeric(aVarKey) Then
+        Dim ValueIdx As Long
+    
+        ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
+        If ValueIdx > -1 Then
+            GetAssignedArray = P_EXPR_VARIABLES.Storage(ValueIdx).value2
+        End If
+    Else
+        GetAssignedArray = P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2
+    End If
+End Function
 Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As String) As Long
     Dim i As Long
     Dim tmpResult As Boolean
@@ -403,7 +436,13 @@ Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As
         GetCBItemIdx = -1
     End If
 End Function
-
+''' <summary>
+'''     Returns the index for the given variable in current scope.
+'''     The method returns -1 for missing variables
+''' </summary>
+Public Function GetVariableIndex(aVarName As String) As Long
+    GetVariableIndex = GetCBItemIdx(P_EXPR_VARIABLES, aVarName)
+End Function
 Private Sub InitCBbuffer(ByRef aBuffer As ClusterBuffer)
     aBuffer.Capacity = 128
     ReDim aBuffer.Storage(0 To aBuffer.Capacity - 1)
