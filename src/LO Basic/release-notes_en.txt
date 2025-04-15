@@ -1,6 +1,6 @@
-# Approaching scripts!
-## New features
-- [x] Support for double equality symbol (`==`): the library is able to evaluate comparisons using the double equality symbol, commonly used in modern scripting languages. With this addition, it is possible to evaluate expressions such as `(a + b == c) & (a + b = c)`.
+# A single one
+## New function
+- [x] `INSTR`
 
 ## Download 
-https://github.com/ws-garcia/VBA-Expressions/releases/download/v3.2.9/VBAExpressions.oxt
+https://github.com/ws-garcia/VBA-Expressions/releases/download/v3.2.10/VBAExpressions.oxt

@@ -8,7 +8,7 @@ option ClassModule
 Option Base 0
 &apos;#
 &apos;///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-&apos; Copyright © 2024 W. García
+&apos; Copyright © 2024-2025 W. García
 &apos; GPL-3.0 license | https://www.gnu.org/licenses/gpl-3.0.html/
 &apos; https://github.com/ws-garcia
 &apos;///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -318,7 +318,7 @@ Private Sub Class_Initialize()
     BuildinFunctIDList = &quot;abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist&quot; &amp; _
                             &quot;;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff&quot; &amp; _
                             &quot;;datepart;dateserial;datevalue;day;ddb;det;erf;exp;fishf;fit;format;fv;fzero&quot; &amp; _
-                            &quot;;gamma;gammaln;gauss;get;hour;ibeta;iff;inverse;ipmt;irr;lcase;left;len;log;lgn&quot; &amp; _
+                            &quot;;gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;log;lgn&quot; &amp; _
                             &quot;;ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround&quot; &amp; _
                             &quot;;msum;mtranspose;month;monthname;norm;now;nper;npv;percent;pmt;ppmt;pow;pv&quot; &amp; _
                             &quot;;qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch&quot; &amp; _
@@ -328,7 +328,7 @@ Private Sub Class_Initialize()
                             &quot;;ASTUDT;strArray;Average;Beta_Distribution;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix&quot; &amp; _
                             &quot;;CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial&quot; &amp; _
                             &quot;;aDateValue;aDay;aDDB;MatrixDeterminant;ERF;ExpEuler;FISHF;CurveFit&quot; &amp; _
-                            &quot;;aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;InverseMatrix&quot; &amp; _
+                            &quot;;aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix&quot; &amp; _
                             &quot;;aIPMT;aIRR;LowerCase;aLeft;aLen;Logarithm;LgN;LN;LSQRsolve;LUdecomposition&quot; &amp; _
                             &quot;;LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult&quot; &amp; _
                             &quot;;MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM&quot; &amp; _
@@ -2894,6 +2894,8 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
                 EvalFunction = iBETA(Argument, FunctionName)
             Case &quot;aIff&quot;
                 EvalFunction = Iff_(Argument, FunctionName)
+            Case &quot;aInstr&quot;
+                EvalFunction = InStr_(Argument, FunctionName)
             Case &quot;InverseMatrix&quot;
                 EvalFunction = InverseMatrix(Argument, FunctionName)
             Case &quot;aIPMT&quot;
@@ -5126,6 +5128,52 @@ Private Function Iff_(ByRef expression As String, ByRef fName As String) As Stri
     Exit Function
 err_Handler:
     Iff_ = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
+                                    d_lParenthesis &amp; err.Description &amp; d_rParenthesis
+End Function
+
+Private Function InStr_(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            tmpEval = CStr(InStr( _
+                                    1, _
+                                    FormatLiteralString(tmpData(LB), True), _
+                                    FormatLiteralString(tmpData(UB), True) _
+                                ) _
+                            )
+        Case 3
+            tmpEval = CStr(InStr( _
+                                    CLng(tmpData(LB)), _
+                                    FormatLiteralString(tmpData(LB + 1), True), _
+                                    FormatLiteralString(tmpData(UB), True) _
+                                ) _
+                            )
+        Case 4
+            tmpEval = CStr(InStr( _
+                                    CLng(tmpData(LB)), _
+                                    FormatLiteralString(tmpData(LB + 1), True), _
+                                    FormatLiteralString(tmpData(LB + 2), True), _
+                                    CLng(tmpData(UB)) _
+                                ) _
+                            )
+        Case Else
+            InStr_ = e_ValueError
+            Exit Function
+    End Select
+    InStr_ = tmpEval
+    Exit Function
+err_Handler:
+    InStr_ = e_ValueError
     BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
                                     d_lParenthesis &amp; err.Description &amp; d_rParenthesis
 End Function

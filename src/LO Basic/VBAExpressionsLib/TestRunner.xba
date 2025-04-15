@@ -359,6 +359,11 @@ Sub RunAllTests
 			&quot;FORMAT(IRR({{-70000;12000;15000}};true);&apos;Percent&apos;)&quot;, _
 			&quot;&apos;-44.35%&apos;&quot; _
 		)
+	Run( _
+			&quot;INSTR function test&quot;, _
+			&quot;INSTR(&apos;Gear&apos;;&apos;e&apos;)&quot;, _
+			&quot;2&quot; _
+		)
 	SF_Exception.debugprint(&quot;Passed tests:&quot;,sAcum)	
 	SF_Exception.debugprint(&quot;Failed tests:&quot;,tTotal - sAcum)	
 	SF_Exception.debugprint(&quot;Passed tests Ratio:&quot;,Round(100*sAcum/tTotal,2) &amp;&quot;%&quot;)

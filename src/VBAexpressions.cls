@@ -119,7 +119,7 @@ Option Base 0
 '
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ' CONSTANTS:
-Private PI As Double
+Private pi As Double
 Private PID2 As Double
 Private e As Double
 Private Const op_plus As String = "+"
@@ -306,9 +306,9 @@ End Type
 ''' </summary>
 Private Sub Class_Initialize()
     AssignedExpression = False
-    PI = 4 * Atn(1)
-    PID2 = PI / 2
-    e = Exp(1)
+    pi = 4 * Atn(1)
+    PID2 = pi / 2
+    e = exp(1)
     P_SEPARATORCHAR = d_Semicolon
     P_DEC_SYMBOL = dsDot
     AscDecSymbol = 46
@@ -317,7 +317,7 @@ Private Sub Class_Initialize()
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;erf;exp;fishf;fit;format;fv;fzero" & _
-                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;inverse;ipmt;irr;lcase;left;len;log;lgn" & _
+                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
                             ";msum;mtranspose;month;monthname;norm;now;nper;npv;percent;pmt;ppmt;pow;pv" & _
                             ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
@@ -327,7 +327,7 @@ Private Sub Class_Initialize()
                             ";ASTUDT;strArray;Average;Beta_Distribution;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;ERF;ExpEuler;FISHF;CurveFit" & _
-                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;InverseMatrix" & _
+                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
@@ -1099,7 +1099,7 @@ Private Function ArcCos(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(-tmpEval / Sqr(-tmpEval * tmpEval + 1)) + 2 * Atn(1)
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / PI
+        tmpEval = tmpEval * 180 / pi
     End If
     ArcCos = CStr(tmpEval)
     Exit Function
@@ -1116,7 +1116,7 @@ Private Function ArcSin(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(tmpEval / Sqr(-tmpEval * tmpEval + 1))
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / PI
+        tmpEval = tmpEval * 180 / pi
     End If
     ArcSin = CStr(tmpEval)
     Exit Function
@@ -1133,7 +1133,7 @@ Private Function ArcTan(ByRef expression As String, ByRef fName As String) As St
     tmpEval = CDbl(expression)
     tmpEval = Atn(tmpEval)
     If P_DEGREES Then
-        tmpEval = tmpEval * 180 / PI
+        tmpEval = tmpEval * 180 / pi
     End If
     ArcTan = CStr(tmpEval)
     Exit Function
@@ -1660,10 +1660,10 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
             (aL + 5 / 6 - 2 / (3 * H))
-        x = A / (A + B * Exp(2 * w))
+        x = A / (A + B * exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
-        t = Exp(A * lna) / A: u = Exp(B * lnb) / B
+        t = exp(A * lna) / A: u = exp(B * lnb) / B
         w = t + u
         If p < t / w Then
             x = (A * w * p) ^ (1 / A)
@@ -1675,7 +1675,7 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
     Do While j < 10
         If x = 0 Or x = 1 Then BETAINV_ = x: Exit Function
         err = iBETA_(x, A, B) - p
-        t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
+        t = exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
         x = x - t
@@ -1743,7 +1743,7 @@ Private Function BETALN_(x As Double, y As Double) As Double
 End Function
 
 Private Function BETAPDF_(x As Double, Alpha As Double, Beta As Double) As Double
-    BETAPDF_ = Exp((Alpha - 1) * Log(x) + (Beta - 1) * Log(1 - x) - BETALN_(Alpha, Beta))
+    BETAPDF_ = exp((Alpha - 1) * Log(x) + (Beta - 1) * Log(1 - x) - BETALN_(Alpha, Beta))
 End Function
 
 Private Function BETAPDF_EXCEL(x As Double, Alpha As Double, _
@@ -2015,9 +2015,9 @@ Private Function CHISQ_(x As Double, n As Double) As Double
             CHISQ_ = 1 - q: Exit Function
         End If
     End If
-    p = Exp(-0.5 * x)
+    p = exp(-0.5 * x)
     If (REM_(n, 2) = 1) Then
-        p = p * Sqr(2 * x / PI)
+        p = p * Sqr(2 * x / pi)
     End If
     k = n
     Do While (k >= 2)
@@ -2428,7 +2428,7 @@ Private Function Cosin(ByRef expression As String, ByRef fName As String) As Str
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * PI / 180
+        tmpEval = tmpEval * pi / 180
     End If
     Cosin = CStr(Cos(tmpEval))
     Exit Function
@@ -3009,6 +3009,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "aHour": EvalFunction = Hour_(Argument, FunctionName)
             Case "iBETA": EvalFunction = iBETA(Argument, FunctionName)
             Case "aIff": EvalFunction = Iff_(Argument, FunctionName)
+            Case "aInstr": EvalFunction = InStr_(Argument, FunctionName)
             Case "InverseMatrix": EvalFunction = InverseMatrix(Argument, FunctionName)
             Case "aIPMT": EvalFunction = IPMT_(Argument, FunctionName)
             Case "aIRR": EvalFunction = IRR_(Argument, FunctionName)
@@ -3128,7 +3129,7 @@ End Sub
 
 Private Function ExpEuler(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
-    ExpEuler = CStr(Exp(CDbl(expression)))
+    ExpEuler = CStr(exp(CDbl(expression)))
     Exit Function
 err_Handler:
     ExpEuler = e_ValueError
@@ -3166,7 +3167,7 @@ Private Function FACT(n As Double) As Double
     pD = 0.577215664819072 + r * pC
     r = 1 / (1 + r * pD)
     If n > 0.5 Then
-        r = (n * (1 - n) * PI) / (r * Sin(PI * n))
+        r = (n * (1 - n) * pi) / (r * Sin(pi * n))
     End If
     FACT = r
 End Function
@@ -3261,7 +3262,7 @@ Private Function FISHF_(F As Double, N1 As Double, N2 As Double) As Double
         A = A + sth * cth * STATCOM(cth * cth, 2, N2 - 3, -1) / PID2
     End If
     If (N1 = 1) Then FISHF_ = 1 - A: Exit Function
-    c = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / PI
+    c = 4 * STATCOM(sth * sth, N2 + 1, N1 + N2 - 4, N2 - 2) * sth * (cth ^ N2) / pi
     If (N2 = 1) Then FISHF_ = 1 - A + c / 2: Exit Function
     k = 2
     Do While (k <= (N2 - 1) / 2)
@@ -3318,7 +3319,7 @@ Private Function Fit(ByRef expression As String, ByRef fName As String) As Strin
                 Select Case fittingOption
                     Case 2 'Exponential [y = a*e^(b*x)]
                         solverCoeff(0, 0) = 10 ^ solverCoeff(0, 0) 'antilog_10 (A)
-                        solverCoeff(1, 0) = solverCoeff(1, 0) / Log10(Exp(1)) 'B/log10(e)
+                        solverCoeff(1, 0) = solverCoeff(1, 0) / Log10(exp(1)) 'B/log10(e)
                     Case 3 'Exponential [y = a*b^x]
                         solverCoeff(0, 0) = 10 ^ solverCoeff(0, 0) 'antilog_10 (A)
                         solverCoeff(1, 0) = 10 ^ solverCoeff(1, 0) 'antilog_10 (B)
@@ -5085,10 +5086,10 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
             (aL + 5 / 6 - 2 / (3 * H))
-        x = A / (A + B * Exp(2 * w))
+        x = A / (A + B * exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
-        t = Exp(A * lna) / A: u = Exp(B * lnb) / B
+        t = exp(A * lna) / A: u = exp(B * lnb) / B
         w = t + u
         If p < t / w Then
             x = (A * w * p) ^ (1 / A)
@@ -5100,7 +5101,7 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
     Do While j < 10
         If x = 0 Or x = 1 Then iBETAINV = x: Exit Function
         err = iBETA_(x, A, B) - p
-        t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
+        t = exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
         x = x - t
@@ -5119,7 +5120,7 @@ Private Function iBETA_(x As Double, A As Double, B As Double) As Variant
     If x = 0 Or x = 1 Then
         BT = 0
     Else
-        BT = Exp(GAMMALN_(A + B) - GAMMALN_(A) - GAMMALN_(B) + A * Log(x) + B * Log(1 - x))
+        BT = exp(GAMMALN_(A + B) - GAMMALN_(A) - GAMMALN_(B) + A * Log(x) + B * Log(1 - x))
     End If
     If x < 0 Or x > 1 Then
         iBETA_ = False: Exit Function
@@ -5162,6 +5163,52 @@ Private Function Iff_(ByRef expression As String, ByRef fName As String) As Stri
     Exit Function
 err_Handler:
     Iff_ = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function InStr_(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            tmpEval = CStr(InStr( _
+                                    1, _
+                                    FormatLiteralString(tmpData(LB), True), _
+                                    FormatLiteralString(tmpData(UB), True) _
+                                ) _
+                            )
+        Case 3
+            tmpEval = CStr(InStr( _
+                                    CLng(tmpData(LB)), _
+                                    FormatLiteralString(tmpData(LB + 1), True), _
+                                    FormatLiteralString(tmpData(UB), True) _
+                                ) _
+                            )
+        Case 4
+            tmpEval = CStr(InStr( _
+                                    CLng(tmpData(LB)), _
+                                    FormatLiteralString(tmpData(LB + 1), True), _
+                                    FormatLiteralString(tmpData(LB + 2), True), _
+                                    CLng(tmpData(UB)) _
+                                ) _
+                            )
+        Case Else
+            InStr_ = e_ValueError
+            Exit Function
+    End Select
+    InStr_ = tmpEval
+    Exit Function
+err_Handler:
+    InStr_ = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
@@ -6990,7 +7037,7 @@ Private Function NORM_(z As Double) As Double
     Dim q As Double
     q = z * z
     If (Abs(z) > 7) Then
-        NORM_ = (1 - 1 / q + 3 / (q * q)) * Exp(-q / 2) / (Abs(z) * Sqr(PID2))
+        NORM_ = (1 - 1 / q + 3 / (q * q)) * exp(-q / 2) / (Abs(z) * Sqr(PID2))
     Else
         NORM_ = CHISQ_(q, 1)
     End If
@@ -8191,7 +8238,7 @@ Private Function Sine(ByRef expression As String, ByRef fName As String) As Stri
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * PI / 180
+        tmpEval = tmpEval * pi / 180
     End If
     Sine = CStr(Sin(tmpEval))
     Exit Function
@@ -8685,7 +8732,7 @@ Private Function Tangent(ByRef expression As String, ByRef fName As String) As S
     On Error GoTo err_Handler
     tmpEval = CDbl(expression)
     If P_DEGREES Then
-        tmpEval = tmpEval * PI / 180
+        tmpEval = tmpEval * pi / 180
     End If
     Tangent = CStr(Tan(tmpEval))
     Exit Function
