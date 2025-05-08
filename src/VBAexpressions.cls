@@ -308,7 +308,7 @@ Private Sub Class_Initialize()
     AssignedExpression = False
     pi = 4 * Atn(1)
     PID2 = pi / 2
-    e = exp(1)
+    e = Exp(1)
     P_SEPARATORCHAR = d_Semicolon
     P_DEC_SYMBOL = dsDot
     AscDecSymbol = 46
@@ -1660,10 +1660,10 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
             (aL + 5 / 6 - 2 / (3 * H))
-        x = A / (A + B * exp(2 * w))
+        x = A / (A + B * Exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
-        t = exp(A * lna) / A: u = exp(B * lnb) / B
+        t = Exp(A * lna) / A: u = Exp(B * lnb) / B
         w = t + u
         If p < t / w Then
             x = (A * w * p) ^ (1 / A)
@@ -1675,7 +1675,7 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
     Do While j < 10
         If x = 0 Or x = 1 Then BETAINV_ = x: Exit Function
         err = iBETA_(x, A, B) - p
-        t = exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
+        t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
         x = x - t
@@ -1743,7 +1743,7 @@ Private Function BETALN_(x As Double, y As Double) As Double
 End Function
 
 Private Function BETAPDF_(x As Double, Alpha As Double, Beta As Double) As Double
-    BETAPDF_ = exp((Alpha - 1) * Log(x) + (Beta - 1) * Log(1 - x) - BETALN_(Alpha, Beta))
+    BETAPDF_ = Exp((Alpha - 1) * Log(x) + (Beta - 1) * Log(1 - x) - BETALN_(Alpha, Beta))
 End Function
 
 Private Function BETAPDF_EXCEL(x As Double, Alpha As Double, _
@@ -2015,7 +2015,7 @@ Private Function CHISQ_(x As Double, n As Double) As Double
             CHISQ_ = 1 - q: Exit Function
         End If
     End If
-    p = exp(-0.5 * x)
+    p = Exp(-0.5 * x)
     If (REM_(n, 2) = 1) Then
         p = p * Sqr(2 * x / pi)
     End If
@@ -2438,14 +2438,39 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
+Private Function GetLiteralStringGap(startPos As Long, ByRef expression As String) As Long()
+    Dim literalStrGap() As Long
+    Dim tmpPos As Long
+    ReDim literalStrGap(0 To 1)
+    
+    tmpPos = InStr(startPos, expression, d_Apostrophe)
+    If tmpPos Then
+        literalStrGap(0) = tmpPos
+        literalStrGap(1) = InStr(tmpPos + 1, expression, d_Apostrophe)
+    End If
+    GetLiteralStringGap = literalStrGap
+End Function
 Private Function CountParentheses(ByRef expression As String, ByRef ParenthesisChar As String) As Long
     Dim tmpResult As Long
     Dim SearchIndex As Long
     Dim OpenedClosedP As Long
+    Dim literalStrGap() As Long
+    Dim foundLiteralStrGap As Boolean
     
     OpenedClosedP = InStrB(1, expression, ParenthesisChar)
+    literalStrGap() = GetLiteralStringGap(1, expression)
     Do While OpenedClosedP
-        tmpResult = tmpResult + 1
+        foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
+        If foundLiteralStrGap Then
+            If Not (OpenedClosedP > 2 * literalStrGap(0) And OpenedClosedP < 2 * literalStrGap(1)) Then
+                tmpResult = tmpResult + 1
+                If SearchIndex > 2 * literalStrGap(1) * 2 Then
+                    literalStrGap() = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                End If
+            End If
+        Else
+            tmpResult = tmpResult + 1
+        End If
         SearchIndex = OpenedClosedP + 2
         OpenedClosedP = InStrB(SearchIndex, expression, ParenthesisChar)
     Loop
@@ -3129,7 +3154,7 @@ End Sub
 
 Private Function ExpEuler(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
-    ExpEuler = CStr(exp(CDbl(expression)))
+    ExpEuler = CStr(Exp(CDbl(expression)))
     Exit Function
 err_Handler:
     ExpEuler = e_ValueError
@@ -3319,7 +3344,7 @@ Private Function Fit(ByRef expression As String, ByRef fName As String) As Strin
                 Select Case fittingOption
                     Case 2 'Exponential [y = a*e^(b*x)]
                         solverCoeff(0, 0) = 10 ^ solverCoeff(0, 0) 'antilog_10 (A)
-                        solverCoeff(1, 0) = solverCoeff(1, 0) / Log10(exp(1)) 'B/log10(e)
+                        solverCoeff(1, 0) = solverCoeff(1, 0) / Log10(Exp(1)) 'B/log10(e)
                     Case 3 'Exponential [y = a*b^x]
                         solverCoeff(0, 0) = 10 ^ solverCoeff(0, 0) 'antilog_10 (A)
                         solverCoeff(1, 0) = 10 ^ solverCoeff(1, 0) 'antilog_10 (B)
@@ -3604,6 +3629,7 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
     aZero = 10 * epsilon
     With fEvalHelper
         .Create aFunction
+        .GallopingMode = False
         tmpVar() = Split(.CurrentVariables, "; ")
         varLB = LBound(tmpVar)
         If UBound(tmpVar) - varLB > 0 Then  'Reject multivariate functions
@@ -3720,6 +3746,7 @@ Private Function fZeroMRF(ByRef aFunction As String, ByVal A As Double, _
     Set fEvalHelper = New VBAexpressions
     aZero = 10 * epsilon
     With fEvalHelper
+        .GallopingMode = False
         .Create aFunction
         tmpVar() = Split(.CurrentVariables, "; ")
         varLB = LBound(tmpVar)
@@ -4347,12 +4374,28 @@ Private Function GetLParentPos(ByRef expression As String, ByRef RelativePositio
     Dim SearchIndex As Long
     Dim OpenedP As Long
     Dim tmpResult As Long
+    Dim literalStrGap() As Long
+    Dim foundLiteralStrGap As Boolean
     
+    literalStrGap() = GetLiteralStringGap(1, expression)
+    foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
     OpenedP = InStrB(1, expression, d_lParenthesis)
+    If foundLiteralStrGap Then
+        Do While OpenedP And (OpenedP > literalStrGap(0) * 2 _
+                                And OpenedP < literalStrGap(1) * 2)
+            OpenedP = InStrB(1, expression, d_lParenthesis)
+        Loop
+    End If
     Do While tmpCounter < RelativePosition
         tmpCounter = tmpCounter + 1
         SearchIndex = OpenedP + 2
-        tmpResult = OpenedP
+        If SearchIndex > literalStrGap(1) * 2 And foundLiteralStrGap Then
+            literalStrGap() = GetLiteralStringGap(1, expression)
+            foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
+        End If
+        If Not (OpenedP > literalStrGap(0) * 2 And OpenedP < literalStrGap(1) * 2) Then
+            tmpResult = OpenedP
+        End If
         OpenedP = InStrB(SearchIndex, expression, d_lParenthesis)
     Loop
     GetLParentPos = tmpResult
@@ -4636,29 +4679,49 @@ Private Function GetRParentPos(ByRef expression As String, ByRef index As Long) 
     Dim SearchIndex As Long
     Dim OpenedSum As Long
     Dim tmpChr As String
+    Dim literalStrGap() As Long
+    ReDim literalStrGap(0 To 1)
+    Dim foundLiteralStrGap As Boolean
     
     SearchIndex = 1
     OpenedSum = 0
+    literalStrGap() = GetLiteralStringGap(1, expression)
+    foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
     Do
-        tmpChr = MidB$(expression, SearchIndex, 2)
-        If tmpChr = d_lParenthesis Then
-            OpenedSum = OpenedSum + 1
+        If Not (SearchIndex > literalStrGap(0) * 2 And SearchIndex < literalStrGap(1) * 2) Then
+            tmpChr = MidB$(expression, SearchIndex, 2)
+            If tmpChr = d_lParenthesis Then
+                OpenedSum = OpenedSum + 1
+            Else
+                If tmpChr = d_rParenthesis Then
+                    OpenedSum = OpenedSum - 1
+                End If
+            End If
         Else
-            If tmpChr = d_rParenthesis Then
-                OpenedSum = OpenedSum - 1
+            If SearchIndex > literalStrGap(1) * 2 And foundLiteralStrGap Then
+                literalStrGap() = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
             End If
         End If
         SearchIndex = SearchIndex + 2
     Loop While SearchIndex <= index
     SearchIndex = 1
     tmpCounter = 0
+    literalStrGap() = GetLiteralStringGap(1, expression)
     Do
-        tmpChr = MidB$(expression, SearchIndex, 2)
-        If tmpChr = d_lParenthesis Then
-            tmpCounter = tmpCounter + 1
+        If Not (SearchIndex > literalStrGap(0) * 2 And SearchIndex < literalStrGap(1) * 2) Then
+            tmpChr = MidB$(expression, SearchIndex, 2)
+            If tmpChr = d_lParenthesis Then
+                tmpCounter = tmpCounter + 1
+            Else
+                If tmpChr = d_rParenthesis Then
+                    tmpCounter = tmpCounter - 1
+                End If
+            End If
         Else
-            If tmpChr = d_rParenthesis Then
-                tmpCounter = tmpCounter - 1
+            If SearchIndex > literalStrGap(1) * 2 And foundLiteralStrGap Then
+                literalStrGap() = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
             End If
         End If
         SearchIndex = SearchIndex + 2
@@ -5086,10 +5149,10 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
             (aL + 5 / 6 - 2 / (3 * H))
-        x = A / (A + B * exp(2 * w))
+        x = A / (A + B * Exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
-        t = exp(A * lna) / A: u = exp(B * lnb) / B
+        t = Exp(A * lna) / A: u = Exp(B * lnb) / B
         w = t + u
         If p < t / w Then
             x = (A * w * p) ^ (1 / A)
@@ -5101,7 +5164,7 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
     Do While j < 10
         If x = 0 Or x = 1 Then iBETAINV = x: Exit Function
         err = iBETA_(x, A, B) - p
-        t = exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
+        t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
         x = x - t
@@ -5120,7 +5183,7 @@ Private Function iBETA_(x As Double, A As Double, B As Double) As Variant
     If x = 0 Or x = 1 Then
         BT = 0
     Else
-        BT = exp(GAMMALN_(A + B) - GAMMALN_(A) - GAMMALN_(B) + A * Log(x) + B * Log(1 - x))
+        BT = Exp(GAMMALN_(A + B) - GAMMALN_(A) - GAMMALN_(B) + A * Log(x) + B * Log(1 - x))
     End If
     If x < 0 Or x > 1 Then
         iBETA_ = False: Exit Function
@@ -7037,7 +7100,7 @@ Private Function NORM_(z As Double) As Double
     Dim q As Double
     q = z * z
     If (Abs(z) > 7) Then
-        NORM_ = (1 - 1 / q + 3 / (q * q)) * exp(-q / 2) / (Abs(z) * Sqr(PID2))
+        NORM_ = (1 - 1 / q + 3 / (q * q)) * Exp(-q / 2) / (Abs(z) * Sqr(PID2))
     Else
         NORM_ = CHISQ_(q, 1)
     End If
@@ -9063,16 +9126,16 @@ End Function
 
 Private Function ValidFuntionName(ByRef expression As String, _
                                     ByRef FuntionName As String, _
-                                    StartPos As Long) As Boolean
+                                    startPos As Long) As Boolean
     Dim cLeft As Boolean
     Dim cRight As Boolean
     
-    If StartPos > 1 Then
-        cLeft = Not IsLetter(MidB$(expression, StartPos - 2, 2))
+    If startPos > 1 Then
+        cLeft = Not IsLetter(MidB$(expression, startPos - 2, 2))
     Else
         cLeft = True
     End If
-    cRight = Not IsLetter(MidB$(expression, StartPos + LenB(FuntionName), 2))
+    cRight = Not IsLetter(MidB$(expression, startPos + LenB(FuntionName), 2))
     ValidFuntionName = cLeft And cRight
 End Function
 
