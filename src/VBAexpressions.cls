@@ -316,22 +316,22 @@ Private Sub Class_Initialize()
     P_FORMATRESULT = False
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
-                            ";datepart;dateserial;datevalue;day;ddb;det;erf;exp;fishf;fit;format;fv;fzero" & _
-                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;log;lgn" & _
+                            ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
+                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
-                            ";msum;mtranspose;month;monthname;norm;now;nper;npv;percent;pmt;ppmt;pow;pv" & _
+                            ";msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv" & _
                             ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
                             ";syd;tan;timeserial;timevalue;tinv;tinv_1t;tinv_2t;trim;ucase;weekday" & _
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
                             ";ASTUDT;strArray;Average;Beta_Distribution;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
-                            ";aDateValue;aDay;aDDB;MatrixDeterminant;ERF;ExpEuler;FISHF;CurveFit" & _
+                            ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
                             ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix" & _
-                            ";aIPMT;aIRR;LowerCase;aLeft;aLen;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
+                            ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
-                            ";aNow;aNPER;aNPV;Percent;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM" & _
+                            ";aNow;aNPER;aNPV;ParallelLine;Percent;PerpendicularLine;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM" & _
                             ";aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;SquareRoot;SquareRoot;SUM" & _
                             ";STUDT;aSwitch;aSYD;Tangent;aTimeSerial;aTimeValue;TINV;TINV_1T;TINV_2T;aTrim" & _
                             ";aUcase;aWweekDay;aWeekDayName;aYear"
@@ -1632,7 +1632,7 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
     Dim a1, b1 As Double
     Dim j As Long
     Dim lna As Double, lnb As Double
-    Dim pp As Double, t As Double
+    Dim PP As Double, t As Double
     Dim u As Double, err As Double
     Dim x As Double, H As Double
     Dim w As Double, afac As Double
@@ -1649,11 +1649,11 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
     End If
     If A >= 1 And B >= 1 Then
         If p < 0.5 Then
-            pp = p
+            PP = p
         Else
-            pp = 1 - p
+            PP = 1 - p
         End If
-        t = Sqr(-2 * Log(pp))
+        t = Sqr(-2 * Log(PP))
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
         If p < 0.5 Then x = -x
         aL = (x * x - 3) / 6
@@ -2888,6 +2888,45 @@ err_Handler:
 End Function
 
 ''' <summary>
+'''     Returns the distance between two given points. The points
+'''     must be given each one in array format, ex.:
+'''         {{x1;y1}};{{x2;y2}}
+''' </summary>
+Private Function Distance(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            tmpEval = ( _
+                        (aArray(1)(0) - aArray(0)(0)) ^ 2 + _
+                        (aArray(1)(1) - aArray(0)(1)) ^ 2 _
+                        ) ^ 0.5
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    Distance = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    Distance = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+''' <summary>
 '''     Finds for constant sub-expressions
 ''' </summary>
 Private Sub DetermineKtokens()
@@ -3018,6 +3057,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "aDateValue": EvalFunction = DateValue_(Argument, FunctionName)
             Case "aDay":  EvalFunction = Day_(Argument, FunctionName)
             Case "aDDB": EvalFunction = DDB_(Argument, FunctionName)
+            Case "Distance": EvalFunction = Distance(Argument, FunctionName)
             Case "MatrixDeterminant": EvalFunction = Determinant(Argument, FunctionName)
             Case "ERF": EvalFunction = ERF(Argument, FunctionName)
             Case "ExpEuler": EvalFunction = ExpEuler(Argument, FunctionName)
@@ -3041,6 +3081,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "aLeft":  EvalFunction = Left_(Argument, FunctionName)
             Case "aLen": EvalFunction = Len_(Argument, FunctionName)
             Case "LowerCase": EvalFunction = LCase_(Argument, FunctionName)
+            Case "LinesIntersect": EvalFunction = LinesIntersect(Argument, FunctionName)
             Case "Logarithm": EvalFunction = Logarithm(Argument, FunctionName)
             Case "LgN": EvalFunction = LgN(Argument, FunctionName)
             Case "LUdecomposition": EvalFunction = LUdecomposition(Argument, FunctionName)
@@ -5121,7 +5162,7 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
     Dim a1, b1 As Double
     Dim j As Long
     Dim lna As Double, lnb As Double
-    Dim pp As Double, t As Double
+    Dim PP As Double, t As Double
     Dim u As Double, err As Double
     Dim x As Double, H As Double
     Dim w As Double, afac As Double
@@ -5138,11 +5179,11 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
     End If
     If A >= 1 And B >= 1 Then
         If p < 0.5 Then
-            pp = p
+            PP = p
         Else
-            pp = 1 - p
+            PP = 1 - p
         End If
-        t = Sqr(-2 * Log(pp))
+        t = Sqr(-2 * Log(PP))
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
         If p < 0.5 Then x = -x
         aL = (x * x - 3) / 6
@@ -5766,6 +5807,116 @@ Private Function LgN(ByRef expression As String, ByRef fName As String) As Strin
     Exit Function
 err_Handler:
     LgN = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+''' <summary>
+'''     This function return the intersection of two lines given
+'''     two ordered pairs of points for each line. The PointsInLine1
+'''     and PointsInLine2 arguments must have the array form |[x] [y]|
+'''     with the same size (2 rows and 2 columns). The returned value
+'''     is an array |[x] [y]| if the lines meet and a #Null error value
+'''     for parallel lines.
+''' </summary>
+Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
+                                    PointsInLine2 As Variant, Optional k As Integer = 1) As Variant
+    Dim i As Double
+    Dim j As Double
+    Dim m As Double
+    Dim n As Double
+    Dim O As Double
+    Dim PP As Double
+    Dim HomogeneousPointsL1(0 To 1, 0 To 2) As Variant
+    Dim HomogeneousPointsL2(0 To 1, 0 To 2) As Variant
+    Dim HomogeneousEcuations(0 To 1, 0 To 2) As Variant
+    Dim EcuationsProduct(0 To 0, 0 To 2) As Variant
+    Dim Intersection(0 To 0, 0 To 1) As Variant
+    
+    If k <= 0 Then k = 1 'Ensure positive scalar value
+    m = LBound(PointsInLine1, 1)
+    n = LBound(PointsInLine1, 2)
+    'Represent the points with homogeneous coordinates
+    i = 0
+    For O = m To m + 1
+        j = 0
+        For PP = n To n + 2
+            If PP < n + 2 Then
+                HomogeneousPointsL1(i, j) = PointsInLine1(O, PP)
+                HomogeneousPointsL2(i, j) = PointsInLine2(O, PP)
+            Else
+                HomogeneousPointsL1(i, j) = k
+                HomogeneousPointsL2(i, j) = k
+            End If
+            j = j + 1
+        Next PP
+        i = i + 1
+    Next O
+    'Compute the lines homogeneous ecuations using Vectorial Matrix Products
+    HomogeneousEcuations(0, 0) = (HomogeneousPointsL1(0, 1) * HomogeneousPointsL1(1, 2)) - _
+                                (HomogeneousPointsL1(1, 1) * HomogeneousPointsL1(0, 2)) '[a01*a12 - a11*a02]
+    HomogeneousEcuations(0, 1) = -1 * ((HomogeneousPointsL1(0, 0) * HomogeneousPointsL1(1, 2)) - _
+                                (HomogeneousPointsL1(1, 0) * HomogeneousPointsL1(0, 2))) '-[a00*a12 - a10*a02]
+    HomogeneousEcuations(0, 2) = (HomogeneousPointsL1(0, 0) * HomogeneousPointsL1(1, 1)) - _
+                                (HomogeneousPointsL1(1, 0) * HomogeneousPointsL1(0, 1)) '[a00*a11 - a10*a01]
+    HomogeneousEcuations(1, 0) = (HomogeneousPointsL2(0, 1) * HomogeneousPointsL2(1, 2)) - _
+                                (HomogeneousPointsL2(1, 1) * HomogeneousPointsL2(0, 2))
+    HomogeneousEcuations(1, 1) = -1 * ((HomogeneousPointsL2(0, 0) * HomogeneousPointsL2(1, 2)) - _
+                                (HomogeneousPointsL2(1, 0) * HomogeneousPointsL2(0, 2)))
+    HomogeneousEcuations(1, 2) = (HomogeneousPointsL2(0, 0) * HomogeneousPointsL2(1, 1)) - _
+                                (HomogeneousPointsL2(1, 0) * HomogeneousPointsL2(0, 1))
+    'Compute the lines meet using Vectorial Matrix Products
+    EcuationsProduct(0, 0) = (HomogeneousEcuations(0, 1) * HomogeneousEcuations(1, 2)) - _
+                                (HomogeneousEcuations(1, 1) * HomogeneousEcuations(0, 2)) '[a01*a12 - a11*a02]
+    EcuationsProduct(0, 1) = -1 * ((HomogeneousEcuations(0, 0) * HomogeneousEcuations(1, 2)) - _
+                                (HomogeneousEcuations(1, 0) * HomogeneousEcuations(0, 2))) '-[a00*a12 - a10*a02]
+    EcuationsProduct(0, 2) = (HomogeneousEcuations(0, 0) * HomogeneousEcuations(1, 1) - _
+                                (HomogeneousEcuations(1, 0) * HomogeneousEcuations(0, 1))) '[a00*a11 - a10*a01]
+    If EcuationsProduct(0, 2) = 0 Then
+        LinesIntersection = "#Null" 'Return a Null value. The lines meet at the infinity.
+    Else
+        Intersection(0, 0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
+        Intersection(0, 1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
+        LinesIntersection = Intersection
+    End If
+End Function
+
+''' <summary>
+'''     Returns the intersection point for two lines.
+'''     The lines must be given by two crossing points each
+'''     in array format, ex.:
+'''                             {{x1;y1};{x2;y2}}; {{x3;y3};{x4;y4}}
+''' </summary>
+Private Function LinesIntersect(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            tmpEval = LinesIntersection(aArray(0), aArray(1))
+            If IsArray(tmpEval) Then
+                tmpEval = ArrayToString(tmpEval)
+            End If
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    LinesIntersect = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    LinesIntersect = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
@@ -7978,7 +8129,7 @@ Private Function RegressionString(ByRef SolverResult() As Double, Optional ByRef
     Dim strPNames As String
     Dim m As Long
     Dim n As Long
-    Dim o As Long
+    Dim O As Long
     Dim s As Long
     
     m = -1
@@ -7988,9 +8139,9 @@ Private Function RegressionString(ByRef SolverResult() As Double, Optional ByRef
         strPNames = Join$(PredNames, P_SEPARATORCHAR)
     End If
     If Not IsNumeric(PredInteractions) Then n = UBound(PredInteractions)
-    o = UBound(SolverResult)
-    ReDim tmpNames(0 To o - 1)
-    For i = 0 To o - 1
+    O = UBound(SolverResult)
+    ReDim tmpNames(0 To O - 1)
+    For i = 0 To O - 1
         If m >= 0 And n >= 0 Then
             If s <= m Then
                 tmpNames(i) = PredNames(i)
@@ -7999,14 +8150,14 @@ Private Function RegressionString(ByRef SolverResult() As Double, Optional ByRef
                 tmpNames(i) = FormatNamedPredictors(strPNames, CStr(PredInteractions(i - s)), False)
             End If
         Else
-            If n + 1 - (o - i) >= 0 Then 'Save predictors relations without names
-                tmpNames(i) = PredInteractions(n + 1 - (o - i))
+            If n + 1 - (O - i) >= 0 Then 'Save predictors relations without names
+                tmpNames(i) = PredInteractions(n + 1 - (O - i))
             Else
                 tmpNames(i) = "X" & CStr(i + 1)
             End If
         End If
     Next i
-    For i = 0 To o
+    For i = 0 To O
         If i = 0 Then
             tmpResult = CStr(Round(SolverResult(i, 0), 4))
         Else
