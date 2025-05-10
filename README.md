@@ -46,6 +46,7 @@ Welcome to VBA Expressions, a powerful library designed to extend the capabiliti
 * __Floating point notation input support__: `-5E-5`, `(1.434E3+1000)*2/3.235E-5` are valid inputs.
 * __Free of external VBA dependencies__: does not use dll.
 
+## Let's prove it!
 ## ![Let's prove it!](/docs/assets/img/GeoProblem.png)
 The versatility of VBA Expressions allows its users to apply their creativity to solve a wide variety of geometrical problems in anautomated way. To demonstrate this we will solve the problem shown in the figure shown above. We are asked to calculate the area of the largest square inscribed in a right triangle of legs _a_ and _b_. The square corners confguration is: one corner intersecting the leg _a_, another with intersection on leg _b_ and the others corners intersecting the hypotenuse _c_.  First, we define the point _O_ as the square's intersection in leg _b_. The right angle is assumed to be located at the origin of Cartesian plane. In the same way we define _P_ as one intersection of the square with the hypotenuse and _Q_ as the intersection with the leg _a_. Since the figure we are looking for is a square, all sides have a dimension _s_, hence the problem is reduced to ensuring that the magnitudes _OP_ and _OQ_ have the same value. The code to solve the problem is shown below
 
