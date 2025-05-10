@@ -1,6 +1,13 @@
-# A single one
-## New function
-- [x] `INSTR`
+# Embracing analytic geometry basis!
+## Setting changes
+- [x] The `GallopingMode` option is disabled by default.
+## Bug fixed
+- [x] Broken tokenization for expressions involving evaluable literal strings.
+## New functions
+- [x] `DISTANCE`: computes the distance between two Cartesian points.
+- [x] `LINESINTERSECT`: computes the intersection point between two lines defined by two points each.
+- [x] `PARALLEL`: computes two points representing a line parallel to the given one and containing the given point.
+- [x] `PERPENDICULAR`: computes two points representing a line perpendicular to the given one and containing the given point.
 
 ## Download 
-https://github.com/ws-garcia/VBA-Expressions/releases/download/v3.2.10/VBAExpressions.oxt
+https://github.com/ws-garcia/VBA-Expressions/releases/download/v3.2.11/VBAExpressions.oxt

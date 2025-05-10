@@ -313,26 +313,26 @@ Private Sub Class_Initialize()
     P_SEPARATORCHAR = &quot;;&quot;
     P_DEC_SYMBOL = dsDot
     AscDecSymbol = 46
-    P_GALLOPING_MODE = True
+    P_GALLOPING_MODE = False
     P_FORMATRESULT = False
     BuildinFunctIDList = &quot;abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist&quot; &amp; _
                             &quot;;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff&quot; &amp; _
-                            &quot;;datepart;dateserial;datevalue;day;ddb;det;erf;exp;fishf;fit;format;fv;fzero&quot; &amp; _
-                            &quot;;gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;log;lgn&quot; &amp; _
+                            &quot;;datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero&quot; &amp; _
+                            &quot;;gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn&quot; &amp; _
                             &quot;;ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround&quot; &amp; _
-                            &quot;;msum;mtranspose;month;monthname;norm;now;nper;npv;percent;pmt;ppmt;pow;pv&quot; &amp; _
+                            &quot;;msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv&quot; &amp; _
                             &quot;;qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch&quot; &amp; _
                             &quot;;syd;tan;timeserial;timevalue;tinv;tinv_1t;tinv_2t;trim;ucase;weekday&quot; &amp; _
                             &quot;;weekdayname;year&quot;
     BuildinFunctNameList = &quot;Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan&quot; &amp; _
                             &quot;;ASTUDT;strArray;Average;Beta_Distribution;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix&quot; &amp; _
                             &quot;;CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial&quot; &amp; _
-                            &quot;;aDateValue;aDay;aDDB;MatrixDeterminant;ERF;ExpEuler;FISHF;CurveFit&quot; &amp; _
+                            &quot;;aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit&quot; &amp; _
                             &quot;;aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix&quot; &amp; _
-                            &quot;;aIPMT;aIRR;LowerCase;aLeft;aLen;Logarithm;LgN;LN;LSQRsolve;LUdecomposition&quot; &amp; _
+                            &quot;;aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition&quot; &amp; _
                             &quot;;LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult&quot; &amp; _
                             &quot;;MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM&quot; &amp; _
-                            &quot;;aNow;aNPER;aNPV;Percent;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM&quot; &amp; _
+                            &quot;;aNow;aNPER;aNPV;ParallelLine;Percent;PerpendicularLine;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM&quot; &amp; _
                             &quot;;aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;SquareRoot;SquareRoot;SUM&quot; &amp; _
                             &quot;;STUDT;aSwitch;aSYD;Tangent;aTimeSerial;aTimeValue;TINV;TINV_1T;TINV_2T;aTrim&quot; &amp; _
                             &quot;;aUcase;aWweekDay;aWeekDayName;aYear&quot;
@@ -2297,10 +2297,23 @@ Private Function CountParentheses(ByRef expression As String, ByRef ParenthesisC
     Dim tmpResult As Long
     Dim SearchIndex As Long
     Dim OpenedClosedP As Long
+    Dim literalStrGap As Variant
+    Dim foundLiteralStrGap As Boolean
     
     OpenedClosedP = strVBA.InStrB(1, expression, ParenthesisChar)
+    literalStrGap = GetLiteralStringGap(1, expression)
     Do While OpenedClosedP
-        tmpResult = tmpResult + 1
+        foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
+        If foundLiteralStrGap Then
+            If Not (OpenedClosedP &gt; 2 * literalStrGap(0) And OpenedClosedP &lt; 2 * literalStrGap(1)) Then
+                tmpResult = tmpResult + 1
+                If SearchIndex &gt; 2 * literalStrGap(1) * 2 Then
+                    literalStrGap = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                End If
+            End If
+        Else
+            tmpResult = tmpResult + 1
+        End If
         SearchIndex = OpenedClosedP + 2
         OpenedClosedP = strVBA.InStrB(SearchIndex, expression, ParenthesisChar)
     Loop
@@ -2701,6 +2714,45 @@ err_Handler:
 End Function
 
 &apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     Returns the distance between two given points.
+&apos;&apos;&apos; &lt;/summary&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Point1&quot;&gt;Array of coordinates in format {{x1;y1}}.&lt;/param&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Point2&quot;&gt;Array of coordinates in format {{x2;y2}}.&lt;/param&gt;
+Private Function Distance(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            tmpEval = ( _
+                        (aArray(1)(0) - aArray(0)(0)) ^ 2 + _
+                        (aArray(1)(1) - aArray(0)(1)) ^ 2 _
+                        ) ^ 0.5
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly &amp; fName &amp; d_rCurly
+    End Select
+    Distance = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    Distance = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
+                                    d_lParenthesis &amp; err.Description &amp; d_rParenthesis
+End Function
+
+&apos;&apos;&apos; &lt;summary&gt;
 &apos;&apos;&apos;     Finds for constant sub-expressions
 &apos;&apos;&apos; &lt;/summary&gt;
 Private Sub DetermineKtokens()
@@ -2862,6 +2914,8 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
                 EvalFunction = Day_(Argument, FunctionName)
             Case &quot;aDDB&quot;
                 EvalFunction = DDB_(Argument, FunctionName)
+            Case &quot;Distance&quot;
+            	EvalFunction = Distance(Argument, FunctionName)
             Case &quot;MatrixDeterminant&quot;
                 EvalFunction = Determinant(Argument, FunctionName)
             Case &quot;ERF&quot;
@@ -2908,6 +2962,8 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
                 EvalFunction = Len_(Argument, FunctionName)
             Case &quot;LowerCase&quot;
                 EvalFunction = LCase_(Argument, FunctionName)
+            Case &quot;LinesIntersect&quot;
+            	EvalFunction = LinesIntersect(Argument, FunctionName)
             Case &quot;Logarithm&quot;
                 EvalFunction = Logarithm(Argument, FunctionName)
             Case &quot;LgN&quot;
@@ -2954,8 +3010,12 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
                 EvalFunction = NPER_(Argument, FunctionName)
             Case &quot;aNPV&quot;
                 EvalFunction = NPV_(Argument, FunctionName)
+            Case &quot;ParallelLine&quot;
+            	EvalFunction = ParallelLine(Argument, FunctionName)
             Case &quot;Percent&quot;
                 EvalFunction = Percent(Argument, FunctionName)
+            Case &quot;PerpendicularLine&quot;
+            	EvalFunction = PerpendicularLine(Argument, FunctionName)
             Case &quot;aPMT&quot;
                 EvalFunction = PMT_(Argument, FunctionName)
             Case &quot;aPPMT&quot;
@@ -4289,17 +4349,46 @@ Private Function GetLogicalNeg(ByRef aToken As token) As Variant
     GetLogicalNeg = tmpBoolArr
 End Function
 
+Private Function GetLiteralStringGap(startPos As Long, ByRef expression As String) As Variant
+    Dim literalStrGap() As Long
+    Dim tmpPos As Long
+    ReDim literalStrGap(0 To 1)
+    
+    tmpPos = InStr(startPos, expression, d_Apostrophe)
+    If tmpPos Then
+        literalStrGap(0) = tmpPos
+        literalStrGap(1) = InStr(tmpPos + 1, expression, d_Apostrophe)
+    End If
+    GetLiteralStringGap = literalStrGap
+End Function
+
 Private Function GetLParentPos(ByRef expression As String, ByRef RelativePosition As Long) As Long
     Dim tmpCounter As Long
     Dim SearchIndex As Long
     Dim OpenedP As Long
     Dim tmpResult As Long
+    Dim literalStrGap As Variant
+    Dim foundLiteralStrGap As Boolean
     
+    literalStrGap = GetLiteralStringGap(1, expression)
+    foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
     OpenedP = strVBA.InStrB(1, expression, d_lParenthesis)
+    If foundLiteralStrGap Then
+        Do While OpenedP And (OpenedP &gt; literalStrGap(0) * 2 _
+                                And OpenedP &lt; literalStrGap(1) * 2)
+            OpenedP = strVBA.InStrB(1, expression, d_lParenthesis)
+        Loop
+    End If
     Do While tmpCounter &lt; RelativePosition
         tmpCounter = tmpCounter + 1
         SearchIndex = OpenedP + 2
-        tmpResult = OpenedP
+        If SearchIndex &gt; literalStrGap(1) * 2 And foundLiteralStrGap Then
+            literalStrGap = GetLiteralStringGap(1, expression)
+            foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
+        End If
+        If Not (OpenedP &gt; literalStrGap(0) * 2 And OpenedP &lt; literalStrGap(1) * 2) Then
+            tmpResult = OpenedP
+        End If
         OpenedP = strVBA.InStrB(SearchIndex, expression, d_lParenthesis)
     Loop
     GetLParentPos = tmpResult
@@ -4596,38 +4685,59 @@ Private Sub GetRootedTree(ByRef SubExpression As String, ByRef tmpReplacement As
     Loop While Switch
 End Sub
 
-Private Function GetRParentPos(ByRef expression As String, ByRef aindex As Long) As Long
+
+Private Function GetRParentPos(ByRef expression As String, ByRef index As Long) As Long
     Dim tmpCounter As Long
     Dim SearchIndex As Long
     Dim OpenedSum As Long
     Dim tmpChr As String
+    Dim literalStrGap As Variant
+    ReDim literalStrGap(0 To 1)
+    Dim foundLiteralStrGap As Boolean
     
     SearchIndex = 1
     OpenedSum = 0
+    literalStrGap = GetLiteralStringGap(1, expression)
+    foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
     Do
-        tmpChr = strVBA.MidB(expression, SearchIndex, 2)
-        If tmpChr = d_lParenthesis Then
-            OpenedSum = OpenedSum + 1
+        If Not (SearchIndex &gt; literalStrGap(0) * 2 And SearchIndex &lt; literalStrGap(1) * 2) Then
+            tmpChr = strVBA.MidB(expression, SearchIndex, 2)
+            If tmpChr = d_lParenthesis Then
+                OpenedSum = OpenedSum + 1
+            Else
+                If tmpChr = d_rParenthesis Then
+                    OpenedSum = OpenedSum - 1
+                End If
+            End If
         Else
-            If tmpChr = d_rParenthesis Then
-                OpenedSum = OpenedSum - 1
+            If SearchIndex &gt; literalStrGap(1) * 2 And foundLiteralStrGap Then
+                literalStrGap = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
             End If
         End If
         SearchIndex = SearchIndex + 2
-    Loop While SearchIndex &lt;= aindex
+    Loop While SearchIndex &lt;= index
     SearchIndex = 1
     tmpCounter = 0
+    literalStrGap = GetLiteralStringGap(1, expression)
     Do
-        tmpChr = strVBA.MidB(expression, SearchIndex, 2)
-        If tmpChr = d_lParenthesis Then
-            tmpCounter = tmpCounter + 1
+        If Not (SearchIndex &gt; literalStrGap(0) * 2 And SearchIndex &lt; literalStrGap(1) * 2) Then
+            tmpChr = strVBA.MidB(expression, SearchIndex, 2)
+            If tmpChr = d_lParenthesis Then
+                tmpCounter = tmpCounter + 1
+            Else
+                If tmpChr = d_rParenthesis Then
+                    tmpCounter = tmpCounter - 1
+                End If
+            End If
         Else
-            If tmpChr = d_rParenthesis Then
-                tmpCounter = tmpCounter - 1
+            If SearchIndex &gt; literalStrGap(1) * 2 And foundLiteralStrGap Then
+                literalStrGap = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+                foundLiteralStrGap = (literalStrGap(0) &gt; 0 And literalStrGap(1) &gt; 0)
             End If
         End If
         SearchIndex = SearchIndex + 2
-    Loop Until (tmpCounter = OpenedSum - 1) And (SearchIndex &gt; aindex)
+    Loop Until (tmpCounter = OpenedSum - 1) And (SearchIndex &gt; index)
     GetRParentPos = SearchIndex - 2
 End Function
 
@@ -5674,6 +5784,117 @@ Private Function LgN(ByRef expression As String, ByRef fName As String) As Strin
     Exit Function
 err_Handler:
     LgN = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
+                                    d_lParenthesis &amp; err.Description &amp; d_rParenthesis
+End Function
+
+&apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     This function return the intersection of two lines given
+&apos;&apos;&apos;     two ordered pairs of points for each line. The PointsInLine1
+&apos;&apos;&apos;     and PointsInLine2 arguments must have the array form |[x] [y]|
+&apos;&apos;&apos;     with the same size (2 rows and 2 columns). The returned value
+&apos;&apos;&apos;     is an array |[x] [y]| if the lines meet and a #Null error value
+&apos;&apos;&apos;     for parallel lines.
+&apos;&apos;&apos; &lt;/summary&gt;
+Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
+                                    PointsInLine2 As Variant, Optional k As Integer = 1) As Variant
+    Dim i As Double
+    Dim j As Double
+    Dim m As Double
+    Dim n As Double
+    Dim O As Double
+    Dim PP As Double
+    Dim HomogeneousPointsL1(0 To 1, 0 To 2) As Variant
+    Dim HomogeneousPointsL2(0 To 1, 0 To 2) As Variant
+    Dim HomogeneousEcuations(0 To 1, 0 To 2) As Variant
+    Dim EcuationsProduct(0 To 0, 0 To 2) As Variant
+    Dim Intersection(0 To 0, 0 To 1) As Variant
+    
+    If k &lt;= 0 Then k = 1 &apos;Ensure positive scalar value
+    m = LBound(PointsInLine1, 1)
+    n = LBound(PointsInLine1, 2)
+    &apos;Represent the points with homogeneous coordinates
+    i = 0
+    For O = m To m + 1
+        j = 0
+        For PP = n To n + 2
+            If PP &lt; n + 2 Then
+                HomogeneousPointsL1(i, j) = PointsInLine1(O, PP)
+                HomogeneousPointsL2(i, j) = PointsInLine2(O, PP)
+            Else
+                HomogeneousPointsL1(i, j) = k
+                HomogeneousPointsL2(i, j) = k
+            End If
+            j = j + 1
+        Next PP
+        i = i + 1
+    Next O
+    &apos;Compute the lines homogeneous ecuations using Vectorial Matrix Products
+    HomogeneousEcuations(0, 0) = (HomogeneousPointsL1(0, 1) * HomogeneousPointsL1(1, 2)) - _
+                                (HomogeneousPointsL1(1, 1) * HomogeneousPointsL1(0, 2)) &apos;[a01*a12 - a11*a02]
+    HomogeneousEcuations(0, 1) = -1 * ((HomogeneousPointsL1(0, 0) * HomogeneousPointsL1(1, 2)) - _
+                                (HomogeneousPointsL1(1, 0) * HomogeneousPointsL1(0, 2))) &apos;-[a00*a12 - a10*a02]
+    HomogeneousEcuations(0, 2) = (HomogeneousPointsL1(0, 0) * HomogeneousPointsL1(1, 1)) - _
+                                (HomogeneousPointsL1(1, 0) * HomogeneousPointsL1(0, 1)) &apos;[a00*a11 - a10*a01]
+    HomogeneousEcuations(1, 0) = (HomogeneousPointsL2(0, 1) * HomogeneousPointsL2(1, 2)) - _
+                                (HomogeneousPointsL2(1, 1) * HomogeneousPointsL2(0, 2))
+    HomogeneousEcuations(1, 1) = -1 * ((HomogeneousPointsL2(0, 0) * HomogeneousPointsL2(1, 2)) - _
+                                (HomogeneousPointsL2(1, 0) * HomogeneousPointsL2(0, 2)))
+    HomogeneousEcuations(1, 2) = (HomogeneousPointsL2(0, 0) * HomogeneousPointsL2(1, 1)) - _
+                                (HomogeneousPointsL2(1, 0) * HomogeneousPointsL2(0, 1))
+    &apos;Compute the lines meet using Vectorial Matrix Products
+    EcuationsProduct(0, 0) = (HomogeneousEcuations(0, 1) * HomogeneousEcuations(1, 2)) - _
+                                (HomogeneousEcuations(1, 1) * HomogeneousEcuations(0, 2)) &apos;[a01*a12 - a11*a02]
+    EcuationsProduct(0, 1) = -1 * ((HomogeneousEcuations(0, 0) * HomogeneousEcuations(1, 2)) - _
+                                (HomogeneousEcuations(1, 0) * HomogeneousEcuations(0, 2))) &apos;-[a00*a12 - a10*a02]
+    EcuationsProduct(0, 2) = (HomogeneousEcuations(0, 0) * HomogeneousEcuations(1, 1) - _
+                                (HomogeneousEcuations(1, 0) * HomogeneousEcuations(0, 1))) &apos;[a00*a11 - a10*a01]
+    If EcuationsProduct(0, 2) = 0 Then
+        LinesIntersection = &quot;#Null&quot; &apos;Return a Null value. The lines meet at the infinity.
+    Else
+        Intersection(0, 0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
+        Intersection(0, 1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
+        LinesIntersection = Intersection
+    End If
+End Function
+
+&apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     Returns the intersection point for two lines.
+&apos;&apos;&apos; &lt;/summary&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Line1&quot;&gt;Array of coordinates in format {{x1;y1};{x2;y2}}.&lt;/param&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Line2&quot;&gt;Array of coordinates in format {{x3;y3};{x4;y4}}.&lt;/param&gt;
+Private Function LinesIntersect(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            tmpEval = LinesIntersection(aArray(0), aArray(1))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly &amp; fName &amp; d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+    	LinesIntersect = ArrayToString(tmpEval)
+    else
+    	LinesIntersect = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    LinesIntersect = e_ValueError
     BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
                                     d_lParenthesis &amp; err.Description &amp; d_rParenthesis
 End Function
@@ -7307,12 +7528,143 @@ Private Function PatternToCheckOn(ByRef ArgDefStr As String) As String
     End If
 End Function
 
+&apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     Returns two points representing a line parallel to the given one and
+&apos;&apos;&apos;     containing the given point.
+&apos;&apos;&apos; &lt;/summary&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Line&quot;&gt;Array of coordinates in format {{x1;y1};{x2;y2}}.&lt;/param&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Point&quot;&gt;Array of coordinates in format {{x;y}}.&lt;/param&gt;
+Private Function ParallelLine(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            Dim aTerm As Double
+            Dim bTerm As Double
+            Dim cTerm As Double
+            Dim pointArr(0 To 1) As Variant
+            Dim tmpArr(0 To 1) As Double
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) &apos;y1-y2
+            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) &apos;x2-x1
+            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
+                    - aArray(0)(1, 0) * aArray(0)(0, 1) &apos;x1*y2-x2*y1
+            pointArr(0) = aArray(1)
+            If aTerm &lt;&gt; 0 And bTerm &lt;&gt; 0 Then
+                tmpArr(0) = 0
+                tmpArr(1) = (aTerm * aArray(1)(0) + bTerm * aArray(1)(1)) / bTerm
+            Else
+                If aTerm = 0 Then &apos;Horizontal line
+                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
+                    tmpArr(1) = aArray(1)(1)
+                Else &apos;Vertical line
+                    tmpArr(0) = aArray(1)(0)
+                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
+                End If
+            End If
+            pointArr(1) = tmpArr
+            tmpEval = ArrayToString(pointArr)
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly &amp; fName &amp; d_rCurly
+    End Select
+    ParallelLine = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    ParallelLine = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
+                                    d_lParenthesis &amp; err.Description &amp; d_rParenthesis
+End Function
+
 Private Function Percent(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
     Percent = CDbl(expression) / 100
     Exit Function
 err_Handler:
     Percent = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
+                                    d_lParenthesis &amp; err.Description &amp; d_rParenthesis
+End Function
+
+&apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     Returns two points representing a line perpendicular to the
+&apos;&apos;&apos;     given one and containing the given point.
+&apos;&apos;&apos; &lt;/summary&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Line&quot;&gt;Array of coordinates in format {{x1;y1};{x2;y2}}.&lt;/param&gt;
+&apos;&apos;&apos; &lt;param name=&quot;Point&quot;&gt;Array of coordinates in format {{x;y}}.&lt;/param&gt;
+Private Function PerpendicularLine(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            Dim aTerm As Double
+            Dim bTerm As Double
+            Dim cTerm As Double
+            Dim pointArr(0 To 1) As Variant
+            Dim tmpArr(0 To 1) As Double
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) &apos;y1-y2
+            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) &apos;x2-x1
+            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
+                    - aArray(0)(1, 0) * aArray(0)(0, 1) &apos;x1*y2-x2*y1
+            pointArr(0) = aArray(1)
+            If aTerm &lt;&gt; 0 And bTerm &lt;&gt; 0 Then
+                &apos; (-c*a+b(b*x3-a*y3))/(a^2 + b^2)
+                tmpArr(0) = (-cTerm * aTerm + bTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1))) _
+                                / _
+                            (aTerm ^ 2 + bTerm ^ 2)
+                &apos; (-a(b*x3-a*y3)-b*c)/(a^2 + b^2)
+                tmpArr(1) = (-aTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1)) - bTerm * cTerm) _
+                                / _
+                            (aTerm ^ 2 + bTerm ^ 2)
+                If pointArr(0)(0) = tmpArr(0) And _
+                            pointArr(0)(1) = tmpArr(1) Then &apos;Known point is the intersection
+                    tmpArr(0) = pointArr(0)(0) + 1
+                    tmpArr(1) = pointArr(0)(1) + bTerm / aTerm
+                End If
+            Else
+                If aTerm = 0 Then &apos;Horizontal line
+                    tmpArr(0) = aArray(1)(0)
+                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
+                Else  &apos;Vertical line
+                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
+                    tmpArr(1) = aArray(1)(1)
+                End If
+            End If
+            pointArr(1) = tmpArr
+            tmpEval = ArrayToString(pointArr)
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly &amp; fName &amp; d_rCurly
+    End Select
+    PerpendicularLine = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    PerpendicularLine = e_ValueError
     BuildErrMessage errEvalError, d_lCurly &amp; fName &amp; d_rCurly &amp; &quot; | Error#: &quot; &amp; err.Number &amp; d_Space &amp; _
                                     d_lParenthesis &amp; err.Description &amp; d_rParenthesis
 End Function

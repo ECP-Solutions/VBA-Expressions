@@ -8,7 +8,7 @@ Private tTotal As Long
 
 &apos;#
 &apos;////////////////////////////////////////////////////////////////////////////////////////////
-&apos; Copyright © 2024 W. García
+&apos; Copyright © 2024-2025 W. García
 &apos; GPL-3.0 license | https://www.gnu.org/licenses/gpl-3.0.html/
 &apos; https://github.com/ws-garcia
 &apos;////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,6 +363,27 @@ Sub RunAllTests
 			&quot;INSTR function test&quot;, _
 			&quot;INSTR(&apos;Gear&apos;;&apos;e&apos;)&quot;, _
 			&quot;2&quot; _
+		)
+	&apos;Analytical Geometry
+	Run( _
+			&quot;Distance between two points&quot;, _
+			&quot;ROUND(DISTANCE({{3.1441;0}};{{4.45415;3.1441}});4)&quot;, _
+			&quot;3.4061&quot; _
+		)
+	Run( _
+			&quot;Lines intersection&quot;, _
+			&quot;MROUND(LINESINTERSECT({{12;0};{0;5}};{{0;1.31004};{0.79693;3.22267}});2)&quot;, _
+			&quot;{{1.31;4.45}}&quot; _
+		)
+	Run( _
+			&quot;Parallel line&quot;, _
+			&quot;MROUND(PARALLEL({{12;0};{0;5}};{{3.1441;0}});2)&quot;, _
+			&quot;{{3.14;0};{0;1.31}}&quot; _
+		)
+	Run( _
+			&quot;Perpendicular line&quot;, _
+			&quot;MROUND(PERPENDICULAR({{12;0};{0;5}};{{3.1441;0}});2)&quot;, _
+			&quot;{{3.14;0};{4.45;3.14}}&quot; _
 		)
 	SF_Exception.debugprint(&quot;Passed tests:&quot;,sAcum)	
 	SF_Exception.debugprint(&quot;Failed tests:&quot;,tTotal - sAcum)	

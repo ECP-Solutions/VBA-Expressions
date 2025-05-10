@@ -12,7 +12,7 @@ Option Explicit
 Option Base 0
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-' Copyright © 2022-2024 W. García
+' Copyright © 2022-2025 W. García
 ' GPL-3.0 license | https://www.gnu.org/licenses/gpl-3.0.html/
 ' https://ingwilfredogarcia.wordpress.com
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -312,7 +312,7 @@ Private Sub Class_Initialize()
     P_SEPARATORCHAR = d_Semicolon
     P_DEC_SYMBOL = dsDot
     AscDecSymbol = 46
-    P_GALLOPING_MODE = True
+    P_GALLOPING_MODE = False
     P_FORMATRESULT = False
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
@@ -2888,10 +2888,10 @@ err_Handler:
 End Function
 
 ''' <summary>
-'''     Returns the distance between two given points. The points
-'''     must be given each one in array format, ex.:
-'''         {{x1;y1}};{{x2;y2}}
+'''     Returns the distance between two given points.
 ''' </summary>
+''' <param name="Point1">Array of coordinates in format {{x1;y1}}.</param>
+''' <param name="Point2">Array of coordinates in format {{x2;y2}}.</param>
 Private Function Distance(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
@@ -3105,7 +3105,9 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "aNow": EvalFunction = Now_(Argument, FunctionName)
             Case "aNPER": EvalFunction = NPER_(Argument, FunctionName)
             Case "aNPV": EvalFunction = NPV_(Argument, FunctionName)
+            Case "ParallelLine": EvalFunction = ParallelLine(Argument, FunctionName)
             Case "Percent": EvalFunction = Percent(Argument, FunctionName)
+            Case "PerpendicularLine": EvalFunction = PerpendicularLine(Argument, FunctionName)
             Case "aPMT": EvalFunction = PMT_(Argument, FunctionName)
             Case "aPPMT": EvalFunction = PPMT_(Argument, FunctionName)
             Case "Power": EvalFunction = Power(Argument, FunctionName)
@@ -3670,7 +3672,6 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
     aZero = 10 * epsilon
     With fEvalHelper
         .Create aFunction
-        .GallopingMode = False
         tmpVar() = Split(.CurrentVariables, "; ")
         varLB = LBound(tmpVar)
         If UBound(tmpVar) - varLB > 0 Then  'Reject multivariate functions
@@ -3787,7 +3788,6 @@ Private Function fZeroMRF(ByRef aFunction As String, ByVal A As Double, _
     Set fEvalHelper = New VBAexpressions
     aZero = 10 * epsilon
     With fEvalHelper
-        .GallopingMode = False
         .Create aFunction
         tmpVar() = Split(.CurrentVariables, "; ")
         varLB = LBound(tmpVar)
@@ -5883,10 +5883,9 @@ End Function
 
 ''' <summary>
 '''     Returns the intersection point for two lines.
-'''     The lines must be given by two crossing points each
-'''     in array format, ex.:
-'''                             {{x1;y1};{x2;y2}}; {{x3;y3};{x4;y4}}
 ''' </summary>
+''' <param name="Line1">Array of coordinates in format {{x1;y1};{x2;y2}}.</param>
+''' <param name="Line2">Array of coordinates in format {{x3;y3};{x4;y4}}.</param>
 Private Function LinesIntersect(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
@@ -5906,14 +5905,16 @@ Private Function LinesIntersect(ByRef expression As String, ByRef fName As Strin
             aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
             aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
             tmpEval = LinesIntersection(aArray(0), aArray(1))
-            If IsArray(tmpEval) Then
-                tmpEval = ArrayToString(tmpEval)
-            End If
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
     End Select
-    LinesIntersect = tmpEval: Erase tmpData
+    If IsArray(tmpEval) Then
+        LinesIntersect = ArrayToString(tmpEval)
+    Else
+        LinesIntersect = tmpEval
+    End If
+    Erase tmpData
     Exit Function
 err_Handler:
     LinesIntersect = e_ValueError
@@ -7547,12 +7548,143 @@ Private Function PatternToCheckOn(ByRef ArgDefStr As String) As String
     End If
 End Function
 
+''' <summary>
+'''     Returns two points representing a line parallel to the given one and
+'''     containing the given point.
+''' </summary>
+''' <param name="Line">Array of coordinates in format {{x1;y1};{x2;y2}}.</param>
+''' <param name="Point">Array of coordinates in format {{x;y}}.</param>
+Private Function ParallelLine(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            Dim aTerm As Double
+            Dim bTerm As Double
+            Dim cTerm As Double
+            Dim pointArr(0 To 1) As Variant
+            Dim tmpArr(0 To 1) As Double
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) 'y1-y2
+            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) 'x2-x1
+            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
+                    - aArray(0)(1, 0) * aArray(0)(0, 1) 'x1*y2-x2*y1
+            pointArr(0) = aArray(1)
+            If aTerm <> 0 And bTerm <> 0 Then
+                tmpArr(0) = 0
+                tmpArr(1) = (aTerm * aArray(1)(0) + bTerm * aArray(1)(1)) / bTerm
+            Else
+                If aTerm = 0 Then 'Horizontal line
+                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
+                    tmpArr(1) = aArray(1)(1)
+                Else 'Vertical line
+                    tmpArr(0) = aArray(1)(0)
+                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
+                End If
+            End If
+            pointArr(1) = tmpArr
+            tmpEval = ArrayToString(pointArr)
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    ParallelLine = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    ParallelLine = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
 Private Function Percent(ByRef expression As String, ByRef fName As String) As String
     On Error GoTo err_Handler
     Percent = CDbl(expression) / 100
     Exit Function
 err_Handler:
     Percent = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+''' <summary>
+'''     Returns two points representing a line perpendicular to the
+'''     given one and containing the given point.
+''' </summary>
+''' <param name="Line">Array of coordinates in format {{x1;y1};{x2;y2}}.</param>
+''' <param name="Point">Array of coordinates in format {{x;y}}.</param>
+Private Function PerpendicularLine(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As String
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 2
+            Dim aArray() As Variant
+            Dim aTerm As Double
+            Dim bTerm As Double
+            Dim cTerm As Double
+            Dim pointArr(0 To 1) As Variant
+            Dim tmpArr(0 To 1) As Double
+            ReDim aArray(0 To 1)
+            
+            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
+            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
+            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) 'y1-y2
+            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) 'x2-x1
+            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
+                    - aArray(0)(1, 0) * aArray(0)(0, 1) 'x1*y2-x2*y1
+            pointArr(0) = aArray(1)
+            If aTerm <> 0 And bTerm <> 0 Then
+                ' (-c*a+b(b*x3-a*y3))/(a^2 + b^2)
+                tmpArr(0) = (-cTerm * aTerm + bTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1))) _
+                                / _
+                            (aTerm ^ 2 + bTerm ^ 2)
+                ' (-a(b*x3-a*y3)-b*c)/(a^2 + b^2)
+                tmpArr(1) = (-aTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1)) - bTerm * cTerm) _
+                                / _
+                            (aTerm ^ 2 + bTerm ^ 2)
+                If pointArr(0)(0) = tmpArr(0) And _
+                            pointArr(0)(1) = tmpArr(1) Then 'Known point is the intersection
+                    tmpArr(0) = pointArr(0)(0) + 1
+                    tmpArr(1) = pointArr(0)(1) + bTerm / aTerm
+                End If
+            Else
+                If aTerm = 0 Then 'Horizontal line
+                    tmpArr(0) = aArray(1)(0)
+                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
+                Else  'Vertical line
+                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
+                    tmpArr(1) = aArray(1)(1)
+                End If
+            End If
+            pointArr(1) = tmpArr
+            tmpEval = ArrayToString(pointArr)
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    PerpendicularLine = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    PerpendicularLine = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
