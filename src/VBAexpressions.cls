@@ -2450,25 +2450,28 @@ Private Function GetLiteralStringGap(startPos As Long, ByRef expression As Strin
     End If
     GetLiteralStringGap = literalStrGap
 End Function
+Private Function InLiteralGap(ByRef expression As String, parenthesisPos As Long) As Boolean
+    Dim literalStrGap() As Long
+    Dim foundLiteralStrGap As Boolean
+    Dim tmpBool As Boolean
+    ReDim literalStrGap(0 To 1)
+    
+    Do
+        literalStrGap() = GetLiteralStringGap(literalStrGap(1) + 1, expression)
+        foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
+        tmpBool = (parenthesisPos > 2 * literalStrGap(0) And parenthesisPos < 2 * literalStrGap(1))
+    Loop While foundLiteralStrGap And Not tmpBool
+    InLiteralGap = tmpBool
+End Function
+
 Private Function CountParentheses(ByRef expression As String, ByRef ParenthesisChar As String) As Long
     Dim tmpResult As Long
     Dim SearchIndex As Long
     Dim OpenedClosedP As Long
-    Dim literalStrGap() As Long
-    Dim foundLiteralStrGap As Boolean
-    
+
     OpenedClosedP = InStrB(1, expression, ParenthesisChar)
-    literalStrGap() = GetLiteralStringGap(1, expression)
     Do While OpenedClosedP
-        foundLiteralStrGap = (literalStrGap(0) > 0 And literalStrGap(1) > 0)
-        If foundLiteralStrGap Then
-            If Not (OpenedClosedP > 2 * literalStrGap(0) And OpenedClosedP < 2 * literalStrGap(1)) Then
-                tmpResult = tmpResult + 1
-                If SearchIndex > 2 * literalStrGap(1) * 2 Then
-                    literalStrGap() = GetLiteralStringGap(literalStrGap(1) + 1, expression)
-                End If
-            End If
-        Else
+        If Not InLiteralGap(expression, OpenedClosedP) Then
             tmpResult = tmpResult + 1
         End If
         SearchIndex = OpenedClosedP + 2
