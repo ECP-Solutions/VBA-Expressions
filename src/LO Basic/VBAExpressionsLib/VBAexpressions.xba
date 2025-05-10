@@ -5856,7 +5856,9 @@ Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
         LinesIntersection = &quot;#Null&quot; &apos;Return a Null value. The lines meet at the infinity.
     Else
         Intersection(0, 0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
+        If Intersection(0, 0) = 0 Then Intersection(0, 0) = Abs(Intersection(0, 0)) &apos;Avoid negative zero
         Intersection(0, 1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
+        If Intersection(0, 1) = 0 Then Intersection(0, 1) = Abs(Intersection(0, 1))
         LinesIntersection = Intersection
     End If
 End Function
@@ -7644,8 +7646,8 @@ Private Function PerpendicularLine(ByRef expression As String, ByRef fName As St
                 tmpArr(1) = (-aTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1)) - bTerm * cTerm) _
                                 / _
                             (aTerm ^ 2 + bTerm ^ 2)
-                If pointArr(0)(0) = tmpArr(0) And _
-                            pointArr(0)(1) = tmpArr(1) Then &apos;Known point is the intersection
+                If Round(pointArr(0)(0), 4) = Round(tmpArr(0), 4) And _
+                            Round(pointArr(0)(1), 4) = Round(tmpArr(1), 4) Then &apos;Known point is the intersection
                     tmpArr(0) = pointArr(0)(0) + 1
                     tmpArr(1) = pointArr(0)(1) + bTerm / aTerm
                 End If
