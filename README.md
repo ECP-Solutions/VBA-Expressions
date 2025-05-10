@@ -46,6 +46,53 @@ Welcome to VBA Expressions, a powerful library designed to extend the capabiliti
 * __Floating point notation input support__: `-5E-5`, `(1.434E3+1000)*2/3.235E-5` are valid inputs.
 * __Free of external VBA dependencies__: does not use dll.
 
+## ![Let's prove it!](/docs/assets/img/GeoProblem.png)
+The versatility of VBA Expressions allows its users to apply their creativity to solve a wide variety of geometrical problems in anautomated way. To demonstrate this we will solve the problem shown in the figure shown above. We are asked to calculate the area of the largest square inscribed in a right triangle of legs _a_ and _b_. The square corners confguration is: one corner intersecting the leg _a_, another with intersection on leg _b_ and the others corners intersecting the hypotenuse _c_.  First, we define the point _O_ as the square's intersection in leg _b_. The right angle is assumed to be located at the origin of Cartesian plane. In the same way we define _P_ as one intersection of the square with the hypotenuse and _Q_ as the intersection with the leg _a_. Since the figure we are looking for is a square, all sides have a dimension _s_, hence the problem is reduced to ensuring that the magnitudes _OP_ and _OQ_ have the same value. The code to solve the problem is shown below
+
+```vb
+Public Function LargestSquareInRATriangle(A As Double, B As Double) As String
+    Dim contFunct As String
+    Dim evalHelper As VBAexpressions
+    Dim xVal As String
+    Dim Area As String
+
+    contFunct = "FZERO('DISTANCE(LINESINTERSECT(PERPENDICULAR(" _
+                                                    & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                & ";{{" & B & ";0};{0;" & A & "}})" _
+                        & ";{{x;0}})" & "-" _
+                & "DISTANCE(LINESINTERSECT(PERPENDICULAR(PERPENDICULAR(" _
+                                                        & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                            & ";{{x;0}})" _
+                                & ";{{0;0};{0;" & A & "}})" _
+                        & ";{{x;0}})'" _
+                    & ";0;" & B & ")"
+    Set evalHelper = New VBAexpressions
+    With evalHelper
+        .Create contFunct
+        .Eval
+        If .ErrorType = errNone Then
+            xVal = Mid(.Result, 2, Len(.Result) - 2)
+            .Create "(DISTANCE(LINESINTERSECT(PERPENDICULAR(" _
+                                                    & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                & ";{{" & B & ";0};{0;" & A & "}})" _
+                        & ";{{x;0}}))^2", False
+            .Eval xVal
+            If .ErrorType = errNone Then
+                Area = "Area = " & .Result
+                LargestSquareInRATriangle = xVal & "; " & Area
+            End If
+        End If
+    End With
+End Function
+```
+Since the magnitude of the segments _OP_ and _OQ_ must be the same, the `FZERO` function can be used to determine the coordinate _O = (x, 0)_ by iteratively computing the value of _x_ that satisfies the continuous equality _OP−OQ = 0_. After execute the call `LargestSquareInRATriangle(5,12)`, the result returned is
+
+```vb
+x = 3.14410480351349; Area = 11.6016094276853
+```
+
+The  UDF `LargestSquareInRATriangle` is a masterpiece demonstrating the power and versatility offered by the latest versions of VBA Expressions!
+
 ## Supported expressions
 
 The evaluation approach used is similar to the one we humans use: divide the function into sub-expressions, create a symbolic string to build an expression evaluation flow, split the sub-expressions into chunks of operations (tokens) by tokenization, evaluate all the tokens. 
