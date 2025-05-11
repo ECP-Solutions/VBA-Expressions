@@ -315,7 +315,7 @@ Private Sub Class_Initialize()
     P_GALLOPING_MODE = False
     P_FORMATRESULT = False
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
-                            ";betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
+                            ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
                             ";gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
@@ -324,7 +324,7 @@ Private Sub Class_Initialize()
                             ";syd;tan;timeserial;timevalue;tinv;tinv_1t;tinv_2t;trim;ucase;weekday" & _
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
-                            ";ASTUDT;strArray;Average;Beta_Distribution;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
+                            ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
                             ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix" & _
@@ -522,11 +522,11 @@ End Property
 ''' <summary>
 '''     Gets the result for latest evaluated expression.
 ''' </summary>
-Public Property Get Result() As String
+Public Property Get result() As String
     If P_FORMATRESULT Then
-        Result = FormatLiteralString(CStr(P_RESULT), True)
+        result = FormatLiteralString(CStr(P_RESULT), True)
     Else
-        Result = P_RESULT
+        result = P_RESULT
     End If
 End Property
 
@@ -760,13 +760,13 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function ACHISQ_(p As Double, n As Double) As Double
+Private Function ACHISQ_(P As Double, n As Double) As Double
     Dim v As Double, dv As Double, x As Double
     
     v = 0.5: dv = 0.5: x = 0
     Do While (dv > 0.000000000000001)
         x = 1 / v - 1: dv = dv / 2
-        If (CHISQ_(x, n) > p) Then
+        If (CHISQ_(x, n) > P) Then
             v = v - dv
         Else
             v = v + dv
@@ -893,8 +893,8 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function AERF_(p As Double) As Double
-    AERF_ = AGAUSS_(p / 2 + 0.5) / Sqr(2)
+Private Function AERF_(P As Double) As Double
+    AERF_ = AGAUSS_(P / 2 + 0.5) / Sqr(2)
 End Function
 
 ''' <summary>
@@ -934,13 +934,13 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function AFISHF_(p As Double, N1 As Double, N2 As Double) As Double
+Private Function AFISHF_(P As Double, N1 As Double, N2 As Double) As Double
     Dim v As Double, dv As Double, F As Double
     
     v = 0.5: dv = 0.5: F = 0
     Do While (dv > 0.000000000000001)
         F = 1 / v - 1: dv = dv / 2
-        If (FISHF_(F, N1, N2) > p) Then
+        If (FISHF_(F, N1, N2) > P) Then
              v = v - dv
         Else
             v = v + dv
@@ -992,12 +992,119 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function AGAUSS_(p As Double) As Double
-    If (p > 0.5) Then
-        AGAUSS_ = Sqr(ACHISQ_(2 * (1 - p), 1))
+Private Function AGAUSS_(P As Double) As Double
+    If (P > 0.5) Then
+        AGAUSS_ = Sqr(ACHISQ_(2 * (1 - P), 1))
     Else
-        AGAUSS_ = -Sqr(ACHISQ_(2 * p, 1))
+        AGAUSS_ = -Sqr(ACHISQ_(2 * P, 1))
     End If
+End Function
+
+''' <summary>
+'''     Returns an array with two points that defines the angle
+'''     bisector line for the given input. The arguments must comply
+'''     with
+'''             {{Ax;Ay}};{{Bx;By}};{{Cx;Cy}}
+'''
+'''     where B=(Bx,By) is a the angle's vertex.
+''' </summary>
+''' <param name="PointA">First point.</param>
+''' <param name="PointB">Vertex point.</param>
+''' <param name="PointC">Third point.</param>
+Private Function AngleBisector(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 3
+            tmpEval = AngleBisector_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    ToDblArray(ArrayFromString(tmpData(LB + 1))), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+        AngleBisector = ArrayToString(tmpEval)
+    Else
+        AngleBisector = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    AngleBisector = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function AngleBisector_(PointA() As Double, PointB() As Double, PointC() As Double) As Variant
+    Dim Ax As Double, Ay As Double
+    Dim Bx As Double, By As Double
+    Dim Cx As Double, Cy As Double
+    Dim ux As Double, uy As Double
+    Dim vx As Double, vy As Double
+    Dim nu As Double, nv As Double
+    Dim uhatx As Double, uhaty As Double
+    Dim vhatx As Double, vhaty As Double
+    Dim dx As Double, dy As Double
+    Dim nd As Double
+    Dim pPnt(0 To 1) As Double
+    Dim tmpResult(0 To 1) As Variant
+    
+    Ax = PointA(0)
+    Ay = PointA(1)
+    Bx = PointB(0)
+    By = PointB(1)
+    Cx = PointC(0)
+    Cy = PointC(1)
+    'Vector BA and BC
+    ux = Ax - Bx
+    uy = Ay - By
+    vx = Cx - Bx
+    vy = Cy - By
+    'Lenghts
+    nu = Sqr(ux * ux + uy * uy)
+    nv = Sqr(vx * vx + vy * vy)
+    If nu = 0 Or nv = 0 Then
+        'Collinear points
+        err.Raise vbObjectError + 513, , _
+            "One of the segments BA or BC has zero lenght."
+        AngleBisector_ = e_ValueError
+        Exit Function
+    End If
+    'Unit vectors
+    uhatx = ux / nu
+    uhaty = uy / nu
+    vhatx = vx / nv
+    vhaty = vy / nv
+    'Sum to get bisector direction (not yet unit)
+    dx = uhatx + vhatx
+    dy = uhaty + vhaty
+    'Normalize direction
+    nd = Sqr(dx * dx + dy * dy)
+    If nd = 0 Then
+        err.Raise vbObjectError + 514, , _
+            "Points are collinear and opposite; internal bisector is undefined"
+        AngleBisector_ = e_ValueError
+        Exit Function
+    End If
+    dx = dx / nd
+    dy = dy / nd
+    'Return B and D = B + (dx,dy)
+    pPnt(0) = Bx
+    pPnt(1) = By
+    tmpResult(0) = pPnt
+    pPnt(0) = Bx + dx
+    pPnt(1) = By + dy
+    tmpResult(1) = pPnt
+    AngleBisector_ = tmpResult
 End Function
 
 ''' <summary>
@@ -1033,12 +1140,12 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function ANORM_(p) As Double
+Private Function ANORM_(P) As Double
     Dim v As Double, dv As Double, z As Double
     v = 0.5: dv = 0.5: z = 0
     Do While (dv > 0.000000000000001)
         z = 1 / v - 1: dv = dv / 2
-        If (NORM_(z) > p) Then
+        If (NORM_(z) > P) Then
              v = v - dv
         Else
             v = v + dv
@@ -1511,13 +1618,13 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function ASTUDT_(p As Double, n As Double) As Double
+Private Function ASTUDT_(P As Double, n As Double) As Double
     Dim v As Double, dv As Double, t As Double
     
     v = 0.5: dv = 0.5: t = 0
     Do While (dv > 0.000000000000001)
         t = 1 / v - 1: dv = dv / 2
-        If (STUDT_(t, n) > p) Then
+        If (STUDT_(t, n) > P) Then
             v = v - dv
         Else
             v = v + dv
@@ -1626,7 +1733,7 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
+Private Function BETAINV_(P As Double, A As Double, B As Double) As Double
     Const EPS As Double = 0.00000001
     Dim aL As Double
     Dim a1, b1 As Double
@@ -1639,23 +1746,23 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
     
     a1 = A - 1: b1 = B - 1
     j = 0
-    If p <= 0 Then
+    If P <= 0 Then
         BETAINV_ = 0
         Exit Function
     End If
-    If p >= 1 Then
+    If P >= 1 Then
         BETAINV_ = 1
         Exit Function
     End If
     If A >= 1 And B >= 1 Then
-        If p < 0.5 Then
-            PP = p
+        If P < 0.5 Then
+            PP = P
         Else
-            PP = 1 - p
+            PP = 1 - P
         End If
         t = Sqr(-2 * Log(PP))
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
-        If p < 0.5 Then x = -x
+        If P < 0.5 Then x = -x
         aL = (x * x - 3) / 6
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
@@ -1665,16 +1772,16 @@ Private Function BETAINV_(p As Double, A As Double, B As Double) As Double
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
         t = Exp(A * lna) / A: u = Exp(B * lnb) / B
         w = t + u
-        If p < t / w Then
-            x = (A * w * p) ^ (1 / A)
+        If P < t / w Then
+            x = (A * w * P) ^ (1 / A)
         Else
-            x = 1 - ((B * w * (1 - p)) ^ (1 / B))
+            x = 1 - ((B * w * (1 - P)) ^ (1 / B))
         End If
     End If
     afac = -GAMMALN_(A) - GAMMALN_(B) + GAMMALN_(A + B)
     Do While j < 10
         If x = 0 Or x = 1 Then BETAINV_ = x: Exit Function
-        err = iBETA_(x, A, B) - p
+        err = iBETA_(x, A, B) - P
         t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
@@ -2002,7 +2109,7 @@ End Function
 
 Private Function CHISQ_(x As Double, n As Double) As Double
     Dim q As Double
-    Dim p As Double
+    Dim P As Double
     Dim k As Double
     Dim t As Double
     Dim A As Double
@@ -2015,21 +2122,21 @@ Private Function CHISQ_(x As Double, n As Double) As Double
             CHISQ_ = 1 - q: Exit Function
         End If
     End If
-    p = Exp(-0.5 * x)
+    P = Exp(-0.5 * x)
     If (REM_(n, 2) = 1) Then
-        p = p * Sqr(2 * x / pi)
+        P = P * Sqr(2 * x / pi)
     End If
     k = n
     Do While (k >= 2)
-        p = p * x / k: k = k - 2
+        P = P * x / k: k = k - 2
     Loop
-    t = p
+    t = P
     A = n
-    Do While (t > 0.000000000000001 * p)
+    Do While (t > 0.000000000000001 * P)
         A = A + 2
-        t = t * x / A: p = p + t
+        t = t * x / A: P = P + t
     Loop
-    CHISQ_ = 1 - p
+    CHISQ_ = 1 - P
 End Function
 
 ''' <summary>
@@ -3044,6 +3151,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "Average": EvalFunction = average(Argument, FunctionName)
             Case "Beta_Distribution": EvalFunction = BETADIST(Argument, FunctionName)
             Case "BETAINV": EvalFunction = BETAINV(Argument, FunctionName)
+            Case "Bisector": EvalFunction = AngleBisector(Argument, FunctionName)
             Case "Cosin": EvalFunction = Cosin(Argument, FunctionName)
             Case "CHISQ": EvalFunction = CHISQ(Argument, FunctionName)
             Case "CholeskyDec": EvalFunction = CholeskyDecomposition(Argument, FunctionName)
@@ -3214,7 +3322,7 @@ End Function
 ''' </summary>
 ''' <param name="n">Value to compute the factorial from.</param>
 Private Function FACT(n As Double) As Double
-    Dim r As Double
+    Dim R As Double
     Dim pA As Double, pB As Double
     Dim pC As Double, pD As Double
     
@@ -3228,19 +3336,19 @@ Private Function FACT(n As Double) As Double
         FACT = n * FACT(n - 1): Exit Function
     End If
     If n < 0.5 Then
-        r = n
+        R = n
     Else
-        r = 1 - n
+        R = 1 - n
     End If
-    pA = -0.009634403818022 + r * (0.007285315490429 + r * -0.001331461501875)
-    pB = 0.1665389907228 + r * (-0.042197630554869 + r * pA)
-    pC = -0.655878067489187 + r * (-0.042002698827786 + r * pB)
-    pD = 0.577215664819072 + r * pC
-    r = 1 / (1 + r * pD)
+    pA = -0.009634403818022 + R * (0.007285315490429 + R * -0.001331461501875)
+    pB = 0.1665389907228 + R * (-0.042197630554869 + R * pA)
+    pC = -0.655878067489187 + R * (-0.042002698827786 + R * pB)
+    pD = 0.577215664819072 + R * pC
+    R = 1 / (1 + R * pD)
     If n > 0.5 Then
-        r = (n * (1 - n) * pi) / (r * Sin(pi * n))
+        R = (n * (1 - n) * pi) / (R * Sin(pi * n))
     End If
-    FACT = r
+    FACT = R
 End Function
 
 Private Function Factorial(ByRef expression As String) As String
@@ -4609,11 +4717,11 @@ Private Function GetPredInterArr(ByRef strPredictorsInterList As String, n As Lo
     Dim j As Long
     Dim m As Long
     Dim elemComb As Long
-    Dim r As Double    'Sample of r elements
+    Dim R As Double    'Sample of r elements
     
     On Error GoTo err_Handler
-    r = 2
-    elemComb = FACT(n + r - 1) / (FACT(r) * FACT(n - 1)) 'Combination with replacement taken from a set of n distinct objects
+    R = 2
+    elemComb = FACT(n + R - 1) / (FACT(R) * FACT(n - 1)) 'Combination with replacement taken from a set of n distinct objects
     ReDim tmpResult(0 To elemComb - 1)
     If strPreditorsNames <> vbNullString Then
         fInteractions = FormatNumeredInteractions( _
@@ -5084,7 +5192,7 @@ Private Function GoodnessOfFit_(ByRef Polynomial As String, ByRef ObserArray() A
         averageY = ColumnAvg(ObserArray, 1) 'Mean
         For i = 0 To n - 1
             .Eval "x=" & CStr(ObserArray(i, 0))
-            seSquare = seSquare + (ObserArray(i, 1) - CDbl(.Result)) ^ 2 'Partial sum squared regression
+            seSquare = seSquare + (ObserArray(i, 1) - CDbl(.result)) ^ 2 'Partial sum squared regression
             stSquare = stSquare + (averageY - ObserArray(i, 1)) ^ 2 'Partial total sum of squares
         Next i
         Rsquared = Round(1 - seSquare / stSquare, 4)
@@ -5159,7 +5267,7 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
+Private Function iBETAINV(P As Double, A As Double, B As Double) As Double
     Const EPS As Double = 0.00000001
     Dim aL As Double
     Dim a1, b1 As Double
@@ -5172,23 +5280,23 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
 
     a1 = A - 1: b1 = B - 1
     j = 0
-    If p <= 0 Then
+    If P <= 0 Then
         iBETAINV = 0
         Exit Function
     End If
-    If p >= 1 Then
+    If P >= 1 Then
         iBETAINV = 1
         Exit Function
     End If
     If A >= 1 And B >= 1 Then
-        If p < 0.5 Then
-            PP = p
+        If P < 0.5 Then
+            PP = P
         Else
-            PP = 1 - p
+            PP = 1 - P
         End If
         t = Sqr(-2 * Log(PP))
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
-        If p < 0.5 Then x = -x
+        If P < 0.5 Then x = -x
         aL = (x * x - 3) / 6
         H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
         w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
@@ -5198,16 +5306,16 @@ Private Function iBETAINV(p As Double, A As Double, B As Double) As Double
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
         t = Exp(A * lna) / A: u = Exp(B * lnb) / B
         w = t + u
-        If p < t / w Then
-            x = (A * w * p) ^ (1 / A)
+        If P < t / w Then
+            x = (A * w * P) ^ (1 / A)
         Else
-            x = 1 - ((B * w * (1 - p)) ^ (1 / B))
+            x = 1 - ((B * w * (1 - P)) ^ (1 / B))
         End If
     End If
     afac = -GAMMALN_(A) - GAMMALN_(B) + GAMMALN_(A + B)
     Do While j < 10
         If x = 0 Or x = 1 Then iBETAINV = x: Exit Function
-        err = iBETA_(x, A, B) - p
+        err = iBETA_(x, A, B) - P
         t = Exp(a1 * Log(x) + b1 * Log(1 - x) + afac)
         u = err / t
         t = u / (1 - 0.5 * MIN_(1, u * (a1 / x - b1 / (1 - x))))
@@ -6589,7 +6697,7 @@ Private Function MLR_(x() As Double, y() As Double, Optional k As Long = -1, _
     Dim ymean As Double
     Dim d As Double
     Dim n As Long
-    Dim p As Long
+    Dim P As Long
     Dim SSE As Double
     Dim SST As Double
     Dim i As Long
@@ -6608,7 +6716,7 @@ Private Function MLR_(x() As Double, y() As Double, Optional k As Long = -1, _
     If k > 0 Then
         'Compute goodness of fit
         n = UBound(y) - LBound(y) + 1 'Number of observations in the model
-        p = k + 1 'Number of parameters in the model
+        P = k + 1 'Number of parameters in the model
         yhat = ToDblArray(MMULT_(x, Betahat)) 'Predictions
         e = MSum_(tmpY, yhat, True)    'Residuals
         ymean = ColumnAvg(y)
@@ -6616,8 +6724,8 @@ Private Function MLR_(x() As Double, y() As Double, Optional k As Long = -1, _
             SSE = SSE + e(i, 0) ^ 2
             SST = SST + (y(i) - ymean) ^ 2
         Next i
-        If n > p Then
-            sigmaSquared = SSE / (n - p) 'Squared standard error
+        If n > P Then
+            sigmaSquared = SSE / (n - P) 'Squared standard error
         Else
             sigmaSquared = 1.79769313486231E+308
         End If
@@ -8081,23 +8189,23 @@ End Function
 '   @return     R
 '   */
 Private Function QR_getR() As Double()
-    Dim r() As Double
+    Dim R() As Double
     Dim i As Long, j As Long
     
-    ReDim r(0 To n - 1, 0 To n - 1)
+    ReDim R(0 To n - 1, 0 To n - 1)
     For i = 0 To n - 1
         For j = 0 To n - 1
             If i < j Then
-                r(i, j) = QR(i, j)
+                R(i, j) = QR(i, j)
             ElseIf i = j Then
-                r(i, j) = rDiag(i)
+                R(i, j) = rDiag(i)
             Else
-                r(i, j) = 0#
+                R(i, j) = 0#
             End If
-            If signFlip(i) And (r(i, j) <> 0) Then r(i, j) = -1 * r(i, j)
+            If signFlip(i) And (R(i, j) <> 0) Then R(i, j) = -1 * R(i, j)
         Next j
     Next i
-    QR_getR = r
+    QR_getR = R
 End Function
 
    
@@ -8483,11 +8591,11 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
-Private Function RoundToPrecision(t As Double, r As Double) As Double
+Private Function RoundToPrecision(t As Double, R As Double) As Double
     Dim tmpResult As Double
 
-    tmpResult = t * 10 ^ r
-    RoundToPrecision = Round(tmpResult) / (10 ^ r)
+    tmpResult = t * 10 ^ R
+    RoundToPrecision = Round(tmpResult) / (10 ^ R)
 End Function
 
 Private Function ROUND_(aNumber As Double, Optional aDigits As Double = 0) As Double
@@ -9206,17 +9314,17 @@ End Function
 Private Function TINV_(ByRef confidence As Double, dof As Double, _
                             Optional tOption As Single = 2) As Double
     Dim x As Double
-    Dim p As Double 'Probability
+    Dim P As Double 'Probability
     
     If confidence > 1 And confidence < 100 Then 'Percentage entry
         confidence = confidence / 100
     End If
-    p = 1 - confidence
+    P = 1 - confidence
     If tOption = 1 Then
-        x = iBETAINV(2 * p, 0.5 * dof, 0.5)
+        x = iBETAINV(2 * P, 0.5 * dof, 0.5)
     Else
         If tOption = 2 Then
-            x = iBETAINV(p, 0.5 * dof, 0.5)
+            x = iBETAINV(P, 0.5 * dof, 0.5)
         End If
     End If
     x = Round(Sqr(dof * (1 - x) / x), 8)
