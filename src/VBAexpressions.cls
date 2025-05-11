@@ -3020,15 +3020,7 @@ Private Function Distance(ByRef expression As String, ByRef fName As String) As 
     argsCount = UB - LB + 1
     Select Case argsCount
         Case 2
-            Dim aArray() As Variant
-            ReDim aArray(0 To 1)
-            
-            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
-            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
-            tmpEval = ( _
-                        (aArray(1)(0) - aArray(0)(0)) ^ 2 + _
-                        (aArray(1)(1) - aArray(0)(1)) ^ 2 _
-                        ) ^ 0.5
+            tmpEval = Distance_(ToDblArray(ArrayFromString(tmpData(LB))), ToDblArray(ArrayFromString(tmpData(UB))))
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
@@ -3041,6 +3033,9 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
+Private Function Distance_(Point1() As Double, Point2() As Double) As Double
+    Distance_ = ((Point2(0) - Point1(0)) ^ 2 + (Point2(1) - Point1(1)) ^ 2) ^ 0.5
+End Function
 ''' <summary>
 '''     Finds for constant sub-expressions
 ''' </summary>
