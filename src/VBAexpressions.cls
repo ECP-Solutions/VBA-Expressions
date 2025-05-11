@@ -1001,17 +1001,19 @@ Private Function AGAUSS_(P As Double) As Double
 End Function
 
 ''' <summary>
-'''     Returns an array with two points that defines the angle
-'''     bisector line for the given input. The arguments must comply
-'''     with
-'''             {{Ax;Ay}};{{Bx;By}};{{Cx;Cy}}
+'''     Returns an array with two points that defines the bisector of
+'''     the segment or angle, depending on whether two or three points
+'''     are passed as input. The arguments must satisfy
 '''
-'''     where B=(Bx,By) is a the angle's vertex.
+'''             To compute segment bisector: {{Ax;Ay}};{{Bx;By}}
+'''             To compute angle bisector: {{Ax;Ay}};{{Bx;By}};{{Cx;Cy}}
+'''
+'''     where B=(Bx,By) is a the angle's vertex for angular bisection.
 ''' </summary>
 ''' <param name="PointA">First point.</param>
-''' <param name="PointB">Vertex point.</param>
+''' <param name="PointB">Second point.</param>
 ''' <param name="PointC">Third point.</param>
-Private Function AngleBisector(ByRef expression As String, ByRef fName As String) As String
+Private Function AngleSegmentBisector(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
     Dim tmpEval As Variant
@@ -1023,6 +1025,9 @@ Private Function AngleBisector(ByRef expression As String, ByRef fName As String
     UB = UBound(tmpData)
     argsCount = UB - LB + 1
     Select Case argsCount
+        Case 2
+            tmpEval = SegmentBisector_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
         Case 3
             tmpEval = AngleBisector_(ToDblArray(ArrayFromString(tmpData(LB))), _
                                     ToDblArray(ArrayFromString(tmpData(LB + 1))), _
@@ -1032,14 +1037,14 @@ Private Function AngleBisector(ByRef expression As String, ByRef fName As String
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
     End Select
     If IsArray(tmpEval) Then
-        AngleBisector = ArrayToString(tmpEval)
+        AngleSegmentBisector = ArrayToString(tmpEval)
     Else
-        AngleBisector = tmpEval
+        AngleSegmentBisector = tmpEval
     End If
     Erase tmpData
     Exit Function
 err_Handler:
-    AngleBisector = e_ValueError
+    AngleSegmentBisector = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
@@ -3151,7 +3156,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "Average": EvalFunction = average(Argument, FunctionName)
             Case "Beta_Distribution": EvalFunction = BETADIST(Argument, FunctionName)
             Case "BETAINV": EvalFunction = BETAINV(Argument, FunctionName)
-            Case "Bisector": EvalFunction = AngleBisector(Argument, FunctionName)
+            Case "Bisector": EvalFunction = AngleSegmentBisector(Argument, FunctionName)
             Case "Cosin": EvalFunction = Cosin(Argument, FunctionName)
             Case "CHISQ": EvalFunction = CHISQ(Argument, FunctionName)
             Case "CholeskyDec": EvalFunction = CholeskyDecomposition(Argument, FunctionName)
@@ -7670,7 +7675,7 @@ End Function
 Private Function ParallelLine(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
-    Dim tmpEval As String
+    Dim tmpEval As Variant
     Dim LB As Long, UB As Long
     
     On Error GoTo err_Handler
@@ -7680,35 +7685,11 @@ Private Function ParallelLine(ByRef expression As String, ByRef fName As String)
     argsCount = UB - LB + 1
     Select Case argsCount
         Case 2
-            Dim aArray() As Variant
-            Dim aTerm As Double
-            Dim bTerm As Double
-            Dim cTerm As Double
-            Dim pointArr(0 To 1) As Variant
-            Dim tmpArr(0 To 1) As Double
-            ReDim aArray(0 To 1)
-            
-            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
-            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
-            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) 'y1-y2
-            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) 'x2-x1
-            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
-                    - aArray(0)(1, 0) * aArray(0)(0, 1) 'x1*y2-x2*y1
-            pointArr(0) = aArray(1)
-            If aTerm <> 0 And bTerm <> 0 Then
-                tmpArr(0) = 0
-                tmpArr(1) = (aTerm * aArray(1)(0) + bTerm * aArray(1)(1)) / bTerm
-            Else
-                If aTerm = 0 Then 'Horizontal line
-                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
-                    tmpArr(1) = aArray(1)(1)
-                Else 'Vertical line
-                    tmpArr(0) = aArray(1)(0)
-                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
-                End If
-            End If
-            pointArr(1) = tmpArr
-            tmpEval = ArrayToString(pointArr)
+            tmpEval = ArrayToString(ParallelLine_( _
+                                                ToDblArray(ArrayFromString(tmpData(LB))), _
+                                                ToDblArray(ArrayFromString(tmpData(UB))) _
+                                            ) _
+                                        )
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
@@ -7719,6 +7700,34 @@ err_Handler:
     ParallelLine = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function ParallelLine_(aLine() As Double, Point() As Double) As Variant
+    Dim aTerm As Double
+    Dim bTerm As Double
+    Dim cTerm As Double
+    Dim pointArr(0 To 1) As Variant
+    Dim tmpArr(0 To 1) As Double
+    
+    aTerm = aLine(0, 1) - aLine(1, 1) 'y1-y2
+    bTerm = aLine(1, 0) - aLine(0, 0) 'x2-x1
+    cTerm = aLine(0, 0) * aLine(1, 1) _
+            - aLine(1, 0) * aLine(0, 1) 'x1*y2-x2*y1
+    pointArr(0) = Point
+    If aTerm <> 0 And bTerm <> 0 Then
+        tmpArr(0) = 0
+        tmpArr(1) = (aTerm * Point(0) + bTerm * Point(1)) / bTerm
+    Else
+        If aTerm = 0 Then 'Horizontal line
+            tmpArr(0) = Point(0) - Point(1) + 1
+            tmpArr(1) = Point(1)
+        Else 'Vertical line
+            tmpArr(0) = Point(0)
+            tmpArr(1) = Point(0) - Point(1) + 1
+        End If
+    End If
+    pointArr(1) = tmpArr
+    ParallelLine_ = pointArr
 End Function
 
 Private Function Percent(ByRef expression As String, ByRef fName As String) As String
@@ -7750,46 +7759,11 @@ Private Function PerpendicularLine(ByRef expression As String, ByRef fName As St
     argsCount = UB - LB + 1
     Select Case argsCount
         Case 2
-            Dim aArray() As Variant
-            Dim aTerm As Double
-            Dim bTerm As Double
-            Dim cTerm As Double
-            Dim pointArr(0 To 1) As Variant
-            Dim tmpArr(0 To 1) As Double
-            ReDim aArray(0 To 1)
-            
-            aArray(0) = ToDblArray(ArrayFromString(tmpData(LB)))
-            aArray(1) = ToDblArray(ArrayFromString(tmpData(UB)))
-            aTerm = aArray(0)(0, 1) - aArray(0)(1, 1) 'y1-y2
-            bTerm = aArray(0)(1, 0) - aArray(0)(0, 0) 'x2-x1
-            cTerm = aArray(0)(0, 0) * aArray(0)(1, 1) _
-                    - aArray(0)(1, 0) * aArray(0)(0, 1) 'x1*y2-x2*y1
-            pointArr(0) = aArray(1)
-            If aTerm <> 0 And bTerm <> 0 Then
-                ' (-c*a+b(b*x3-a*y3))/(a^2 + b^2)
-                tmpArr(0) = (-cTerm * aTerm + bTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1))) _
-                                / _
-                            (aTerm ^ 2 + bTerm ^ 2)
-                ' (-a(b*x3-a*y3)-b*c)/(a^2 + b^2)
-                tmpArr(1) = (-aTerm * (bTerm * aArray(1)(0) - aTerm * aArray(1)(1)) - bTerm * cTerm) _
-                                / _
-                            (aTerm ^ 2 + bTerm ^ 2)
-                If Round(pointArr(0)(0), 4) = Round(tmpArr(0), 4) And _
-                            Round(pointArr(0)(1), 4) = Round(tmpArr(1), 4) Then 'Known point is the intersection
-                    tmpArr(0) = pointArr(0)(0) + 1
-                    tmpArr(1) = pointArr(0)(1) + bTerm / aTerm
-                End If
-            Else
-                If aTerm = 0 Then 'Horizontal line
-                    tmpArr(0) = aArray(1)(0)
-                    tmpArr(1) = aArray(1)(0) - aArray(1)(1) + 1
-                Else  'Vertical line
-                    tmpArr(0) = aArray(1)(0) - aArray(1)(1) + 1
-                    tmpArr(1) = aArray(1)(1)
-                End If
-            End If
-            pointArr(1) = tmpArr
-            tmpEval = ArrayToString(pointArr)
+            tmpEval = ArrayToString(PerpendicularLine_( _
+                                        ToDblArray(ArrayFromString(tmpData(LB))), _
+                                        ToDblArray(ArrayFromString(tmpData(UB))) _
+                                    ) _
+                            )
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
@@ -7802,6 +7776,44 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
+Private Function PerpendicularLine_(aLine() As Double, Point() As Double) As Variant
+    Dim aTerm As Double
+    Dim bTerm As Double
+    Dim cTerm As Double
+    Dim pointArr(0 To 1) As Variant
+    Dim tmpArr(0 To 1) As Double
+    
+    aTerm = aLine(0, 1) - aLine(1, 1) 'y1-y2
+    bTerm = aLine(1, 0) - aLine(0, 0) 'x2-x1
+    cTerm = aLine(0, 0) * aLine(1, 1) _
+            - aLine(1, 0) * aLine(0, 1) 'x1*y2-x2*y1
+    pointArr(0) = Point
+    If aTerm <> 0 And bTerm <> 0 Then
+        ' (-c*a+b(b*x3-a*y3))/(a^2 + b^2)
+        tmpArr(0) = (-cTerm * aTerm + bTerm * (bTerm * Point(0) - aTerm * Point(1))) _
+                        / _
+                    (aTerm ^ 2 + bTerm ^ 2)
+        ' (-a(b*x3-a*y3)-b*c)/(a^2 + b^2)
+        tmpArr(1) = (-aTerm * (bTerm * Point(0) - aTerm * Point(1)) - bTerm * cTerm) _
+                        / _
+                    (aTerm ^ 2 + bTerm ^ 2)
+        If Round(pointArr(0)(0), 4) = Round(tmpArr(0), 4) And _
+                    Round(pointArr(0)(1), 4) = Round(tmpArr(1), 4) Then 'Known point is the intersection
+            tmpArr(0) = pointArr(0)(0) + 1
+            tmpArr(1) = pointArr(0)(1) + bTerm / aTerm
+        End If
+    Else
+        If aTerm = 0 Then 'Horizontal line
+            tmpArr(0) = Point(0)
+            tmpArr(1) = Point(0) - Point(1) + 1
+        Else  'Vertical line
+            tmpArr(0) = Point(0) - Point(1) + 1
+            tmpArr(1) = Point(1)
+        End If
+    End If
+    pointArr(1) = tmpArr
+    PerpendicularLine_ = pointArr
+End Function
 Private Function PMT_(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
@@ -8633,6 +8645,21 @@ Private Function RowColVectTransform(ByRef tVector As Variant) As Double()
         Next i
     End If
     RowColVectTransform = tmpResult
+End Function
+
+Private Function SegmentBisector_(PointA() As Double, PointB() As Double) As Variant
+    Dim Ax As Double, Ay As Double
+    Dim Bx As Double, By As Double
+    Dim mPoint(0 To 1) As Double
+    Dim sLine(0 To 1, 0 To 1) As Double
+    
+    Ax = PointA(0): Ay = PointA(1)
+    Bx = PointB(0): By = PointB(1)
+    sLine(0, 0) = Ax: sLine(0, 1) = Ay
+    sLine(1, 0) = Bx: sLine(1, 1) = By
+    mPoint(0) = (Ax + Bx) / 2
+    mPoint(1) = (Ay + By) / 2
+    SegmentBisector_ = PerpendicularLine_(sLine, mPoint)
 End Function
 
 ''' <summary>
