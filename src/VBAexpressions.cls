@@ -317,7 +317,7 @@ Private Sub Class_Initialize()
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
-                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
+                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
                             ";msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv" & _
                             ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
@@ -327,7 +327,7 @@ Private Sub Class_Initialize()
                             ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
-                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;aInstr;InverseMatrix" & _
+                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
@@ -1062,6 +1062,7 @@ Private Function AngleBisector_(PointA() As Double, PointB() As Double, PointC()
     Dim nd As Double
     Dim pPnt(0 To 1) As Double
     Dim tmpResult(0 To 1) As Variant
+    Dim result2D(0 To 1, 0 To 1) As Double
     
     Ax = PointA(0)
     Ay = PointA(1)
@@ -1109,7 +1110,10 @@ Private Function AngleBisector_(PointA() As Double, PointB() As Double, PointC()
     pPnt(0) = Bx + dx
     pPnt(1) = By + dy
     tmpResult(1) = pPnt
-    AngleBisector_ = tmpResult
+    result2D(0, 0) = tmpResult(0)(0): result2D(0, 1) = tmpResult(0)(1)
+    result2D(1, 0) = tmpResult(1)(0): result2D(1, 1) = tmpResult(1)(1)
+    Erase tmpResult
+    AngleBisector_ = result2D
 End Function
 
 ''' <summary>
@@ -3185,6 +3189,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "aHour": EvalFunction = Hour_(Argument, FunctionName)
             Case "iBETA": EvalFunction = iBETA(Argument, FunctionName)
             Case "aIff": EvalFunction = Iff_(Argument, FunctionName)
+            Case "Incenter": EvalFunction = Incenter(Argument, FunctionName)
             Case "aInstr": EvalFunction = InStr_(Argument, FunctionName)
             Case "InverseMatrix": EvalFunction = InverseMatrix(Argument, FunctionName)
             Case "aIPMT": EvalFunction = IPMT_(Argument, FunctionName)
@@ -5380,6 +5385,55 @@ err_Handler:
     Iff_ = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+''' <summary>
+'''     Returns an array with coordinates for the incenter for the
+'''     given triangle.
+''' </summary>
+''' <param name="PointA">First point.</param>
+''' <param name="PointB">Second point.</param>
+''' <param name="PointC">Third point.</param>
+Private Function Incenter(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 3
+            tmpEval = InCenter_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    ToDblArray(ArrayFromString(tmpData(LB + 1))), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+        Incenter = ArrayToString(tmpEval)
+    Else
+        Incenter = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    Incenter = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function InCenter_(PointA() As Double, PointB() As Double, PointC() As Double) As Variant
+    Dim AngleBisection1 As Variant
+    Dim AngleBisection2 As Variant
+    
+    AngleBisection1 = ToDblArray(AngleBisector_(PointA, PointB, PointC))
+    AngleBisection2 = ToDblArray(AngleBisector_(PointB, PointC, PointA))
+    InCenter_ = LinesIntersection(AngleBisection1, AngleBisection2)
 End Function
 
 Private Function InStr_(ByRef expression As String, ByRef fName As String) As String
@@ -7703,6 +7757,7 @@ Private Function ParallelLine_(aLine() As Double, Point() As Double) As Variant
     Dim cTerm As Double
     Dim pointArr(0 To 1) As Variant
     Dim tmpArr(0 To 1) As Double
+    Dim result2D(0 To 1, 0 To 1) As Double
     
     aTerm = aLine(0, 1) - aLine(1, 1) 'y1-y2
     bTerm = aLine(1, 0) - aLine(0, 0) 'x2-x1
@@ -7722,7 +7777,10 @@ Private Function ParallelLine_(aLine() As Double, Point() As Double) As Variant
         End If
     End If
     pointArr(1) = tmpArr
-    ParallelLine_ = pointArr
+    result2D(0, 0) = pointArr(0)(0): result2D(0, 1) = pointArr(0)(1)
+    result2D(1, 0) = pointArr(1)(0): result2D(1, 1) = pointArr(1)(1)
+    Erase pointArr
+    ParallelLine_ = result2D
 End Function
 
 Private Function Percent(ByRef expression As String, ByRef fName As String) As String
@@ -7777,6 +7835,7 @@ Private Function PerpendicularLine_(aLine() As Double, Point() As Double) As Var
     Dim cTerm As Double
     Dim pointArr(0 To 1) As Variant
     Dim tmpArr(0 To 1) As Double
+    Dim result2D(0 To 1, 0 To 1) As Double
     
     aTerm = aLine(0, 1) - aLine(1, 1) 'y1-y2
     bTerm = aLine(1, 0) - aLine(0, 0) 'x2-x1
@@ -7807,7 +7866,10 @@ Private Function PerpendicularLine_(aLine() As Double, Point() As Double) As Var
         End If
     End If
     pointArr(1) = tmpArr
-    PerpendicularLine_ = pointArr
+    result2D(0, 0) = pointArr(0)(0): result2D(0, 1) = pointArr(0)(1)
+    result2D(1, 0) = pointArr(1)(0): result2D(1, 1) = pointArr(1)(1)
+    Erase pointArr
+    PerpendicularLine_ = result2D
 End Function
 Private Function PMT_(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
