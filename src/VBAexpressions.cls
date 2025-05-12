@@ -315,7 +315,7 @@ Private Sub Class_Initialize()
     P_GALLOPING_MODE = False
     P_FORMATRESULT = False
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
-                            ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;circumcircle;cos;choose;date;dateadd;datediff" & _
+                            ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;circumcircle;cos;choose;circletang;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
                             ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
@@ -325,7 +325,7 @@ Private Sub Class_Initialize()
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
                             ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
-                            ";CholeskySolve;ASCIIchr;Circumcircle;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
+                            ";CholeskySolve;ASCIIchr;Circumcircle;Cosin;aChoose;CircleTangents;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
                             ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;Incircle;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
@@ -1668,7 +1668,7 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
     Dim M2 As Long
     Dim aa As Double, c As Double
     Dim d As Double, del As Double
-    Dim H As Double, qab As Double
+    Dim h As Double, qab As Double
     Dim qam As Double, qap As Double
     
     fpmin = 1E-30
@@ -1679,7 +1679,7 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
     c = 1: d = 1 - qab * x / qap
     If Abs(d) < fpmin Then d = fpmin
     d = 1 / d
-    H = d
+    h = d
     Do While m <= 100
         M2 = 2 * m
         aa = m * (B - m) * x / ((qam + M2) * (A + M2))
@@ -1688,7 +1688,7 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
         If Abs(d) < fpmin Then d = fpmin
         c = 1 + aa / c
         If Abs(c) < fpmin Then c = fpmin
-        d = 1 / d: H = H * d * c
+        d = 1 / d: h = h * d * c
         aa = -(A + m) * (qab + m) * x / ((A + M2) * (qap + M2))
 '       // Next step of the recurrence (the odd one)
         d = 1 + aa * d
@@ -1696,11 +1696,11 @@ Private Function betacf(x As Double, A As Double, B As Double) As Double
         c = 1 + aa / c
         If Abs(c) < fpmin Then c = fpmin
         d = 1 / d: del = d * c
-        H = H * del
+        h = h * del
         If Abs(del - 1#) < 0.0000003 Then Exit Do
         m = m + 1
     Loop
-    betacf = H
+    betacf = h
 End Function
 
 ''' <summary>
@@ -1750,7 +1750,7 @@ Private Function BETAINV_(P As Double, A As Double, B As Double) As Double
     Dim lna As Double, lnb As Double
     Dim PP As Double, t As Double
     Dim u As Double, err As Double
-    Dim x As Double, H As Double
+    Dim x As Double, h As Double
     Dim w As Double, afac As Double
     
     a1 = A - 1: b1 = B - 1
@@ -1773,9 +1773,9 @@ Private Function BETAINV_(P As Double, A As Double, B As Double) As Double
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
         If P < 0.5 Then x = -x
         aL = (x * x - 3) / 6
-        H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
-        w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
-            (aL + 5 / 6 - 2 / (3 * H))
+        h = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
+        w = (x * Sqr(aL + h) / h) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
+            (aL + 5 / 6 - 2 / (3 * h))
         x = A / (A + B * Exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
@@ -1858,12 +1858,12 @@ Private Function BETALN_(x As Double, y As Double) As Double
     BETALN_ = GAMMALN_(x) + GAMMALN_(y) - GAMMALN_(x + y)
 End Function
 
-Private Function BETAPDF_(x As Double, Alpha As Double, Beta As Double) As Double
-    BETAPDF_ = Exp((Alpha - 1) * Log(x) + (Beta - 1) * Log(1 - x) - BETALN_(Alpha, Beta))
+Private Function BETAPDF_(x As Double, alpha As Double, beta As Double) As Double
+    BETAPDF_ = Exp((alpha - 1) * Log(x) + (beta - 1) * Log(1 - x) - BETALN_(alpha, beta))
 End Function
 
-Private Function BETAPDF_EXCEL(x As Double, Alpha As Double, _
-                                    Beta As Double, Cumulative As Boolean, _
+Private Function BETAPDF_EXCEL(x As Double, alpha As Double, _
+                                    beta As Double, Cumulative As Boolean, _
                                     Optional Lower_Bound As Double = 0, _
                                     Optional Upper_Bound As Double = 1) As Variant
     Dim z As Double
@@ -1874,9 +1874,9 @@ Private Function BETAPDF_EXCEL(x As Double, Alpha As Double, _
             range_ = (Upper_Bound - Lower_Bound)
             z = (x - Lower_Bound) / range_
             If Cumulative Then
-                BETAPDF_EXCEL = iBETA_(z, Alpha, Beta)
+                BETAPDF_EXCEL = iBETA_(z, alpha, beta)
             Else
-                BETAPDF_EXCEL = BETAPDF_(z, Alpha, Beta) / range_
+                BETAPDF_EXCEL = BETAPDF_(z, alpha, beta) / range_
             End If
         Else
             If x = Lower_Bound Or x = Upper_Bound Then
@@ -2100,16 +2100,16 @@ Private Function Circumcircle_(PointA() As Double, PointB() As Double, PointC() 
     Dim hk() As Double
     Dim intersectP() As Double
     Dim result2D(0 To 1, 0 To 1) As Double
-    Dim radius As Double
+    Dim Radius As Double
     
     hk = ToDblArray(LinesIntersection( _
                                 SegmentBisector_(PointA, PointB), _
                                 SegmentBisector_(PointB, PointC) _
                             ) _
                         )
-    radius = Distance_(hk, PointA)
+    Radius = Distance_(hk, PointA)
     result2D(0, 0) = hk(0): result2D(0, 1) = hk(1)
-    result2D(1, 0) = radius: result2D(1, 1) = radius
+    result2D(1, 0) = Radius: result2D(1, 1) = Radius
     Circumcircle_ = result2D
 End Function
 
@@ -3216,6 +3216,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "BETAINV": EvalFunction = BETAINV(Argument, FunctionName)
             Case "Bisector": EvalFunction = AngleSegmentBisector(Argument, FunctionName)
             Case "Circumcircle": EvalFunction = Circumcircle(Argument, FunctionName)
+            Case "CircleTangents": EvalFunction = CircleTangents(Argument, FunctionName)
             Case "Cosin": EvalFunction = Cosin(Argument, FunctionName)
             Case "CHISQ": EvalFunction = CHISQ(Argument, FunctionName)
             Case "CholeskyDec": EvalFunction = CholeskyDecomposition(Argument, FunctionName)
@@ -5341,7 +5342,7 @@ Private Function iBETAINV(P As Double, A As Double, B As Double) As Double
     Dim lna As Double, lnb As Double
     Dim PP As Double, t As Double
     Dim u As Double, err As Double
-    Dim x As Double, H As Double
+    Dim x As Double, h As Double
     Dim w As Double, afac As Double
 
     a1 = A - 1: b1 = B - 1
@@ -5364,9 +5365,9 @@ Private Function iBETAINV(P As Double, A As Double, B As Double) As Double
         x = (2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t
         If P < 0.5 Then x = -x
         aL = (x * x - 3) / 6
-        H = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
-        w = (x * Sqr(aL + H) / H) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
-            (aL + 5 / 6 - 2 / (3 * H))
+        h = 2 / (1 / (2 * A - 1) + 1 / (2 * B - 1))
+        w = (x * Sqr(aL + h) / h) - (1 / (2 * B - 1) - 1 / (2 * A - 1)) * _
+            (aL + 5 / 6 - 2 / (3 * h))
         x = A / (A + B * Exp(2 * w))
     Else
         lna = Log(A / (A + B)): lnb = Log(B / (A + B))
@@ -5542,15 +5543,15 @@ Private Function InCircle_(PointA() As Double, PointB() As Double, PointC() As D
     Dim intersectP() As Double
     Dim aSegment(0 To 1, 0 To 1) As Double
     Dim result2D(0 To 1, 0 To 1) As Double
-    Dim radius As Double
+    Dim Radius As Double
     
     hk = ToDblArray(InCenter_(PointA, PointB, PointC))
     aSegment(0, 0) = PointA(0): aSegment(0, 1) = PointA(1)
     aSegment(1, 0) = PointB(0): aSegment(1, 1) = PointB(1)
     intersectP = ToDblArray(LinesIntersection(aSegment, PerpendicularLine_(aSegment, hk)))
-    radius = Distance_(hk, intersectP)
+    Radius = Distance_(hk, intersectP)
     result2D(0, 0) = hk(0): result2D(0, 1) = hk(1)
-    result2D(1, 0) = radius: result2D(1, 1) = radius
+    result2D(1, 0) = Radius: result2D(1, 1) = Radius
     InCircle_ = result2D
 End Function
 
@@ -8317,20 +8318,20 @@ End Sub
 '   @return     Lower trapezoidal matrix whose columns define the reflections
 '   */
 Private Function QR_getH() As Double()
-    Dim H() As Double
+    Dim h() As Double
     Dim i As Long, j As Long
     
-    ReDim H(0 To m - 1, 0 To n - 1)
+    ReDim h(0 To m - 1, 0 To n - 1)
     For i = 0 To m - 1
         For j = 0 To n - 1
             If i >= j Then
-                H(i, j) = QR(i, j)
+                h(i, j) = QR(i, j)
             Else
-                H(i, j) = 0#
+                h(i, j) = 0#
             End If
         Next j
     Next i
-    QR_getH = H
+    QR_getH = h
 End Function
 
 '   /** Generate and return the (economy-sized) orthogonal factor
@@ -9401,6 +9402,95 @@ err_Handler:
     Tangent = e_ValueError
     BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
                                     d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+''' <summary>
+'''     Returns a list of the arrays defining the coordinates of
+'''     the tangent segments to the given circle.
+''' </summary>
+''' <param name="CenterPoint">The center of the circle.</param>
+''' <param name="Radius">The circle's radius.</param>
+''' <param name="ExtPoint">An external or tangent point for the circle.</param>
+Private Function CircleTangents(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 3
+            tmpEval = CircleTangents_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    CDbl(tmpData(LB + 1)), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+        If UBound(tmpEval) - LBound(tmpEval) <> 0 Then
+            CircleTangents = ArrayToString(tmpEval(0)) _
+                            & P_SEPARATORCHAR & _
+                             ArrayToString(tmpEval(1))
+        Else
+            CircleTangents = ArrayToString(tmpEval)
+        End If
+    Else
+        CircleTangents = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    CircleTangents = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function CircleTangents_(CenterPoint() As Double, Radius As Double, ExtPoint() As Double) As Variant
+    Dim h As Double, k As Double
+    Dim x1 As Double, y1 As Double
+    Dim dx As Double, dy As Double
+    Dim d2 As Double
+    Dim tmpSegment(0 To 1, 0 To 1) As Variant
+    
+    Dim rSegments() As Variant
+    
+    h = CenterPoint(0): k = CenterPoint(1)
+    x1 = ExtPoint(0): y1 = ExtPoint(1)
+    dx = x1 - h: dy = y1 - k
+    d2 = dx * dx + dy * dy
+    Select Case d2 - (Radius * Radius)
+    Case Is > 0
+        Dim alpha As Double, beta As Double
+        ReDim rSegments(0 To 1)
+        alpha = Radius * Radius / d2
+        beta = Radius * Sqr(d2 - Radius * Radius) / d2
+        tmpSegment(0, 0) = h + alpha * dx - beta * dy 'T1x
+        tmpSegment(0, 1) = k + alpha * dy + beta * dx 'T1y
+        tmpSegment(1, 0) = x1: tmpSegment(1, 1) = y1
+        rSegments(0) = tmpSegment
+        tmpSegment(0, 0) = x1: tmpSegment(0, 1) = y1
+        tmpSegment(1, 0) = h + alpha * dx + beta * dy 'T2x
+        tmpSegment(1, 1) = k + alpha * dy - beta * dx 'T2y
+        rSegments(1) = tmpSegment
+    Case 0
+        Dim perpLine As Variant
+        Dim cpLine(0 To 1, 0 To 1) As Double
+        ReDim rSegments(0 To 0)
+        
+        cpLine(0, 0) = h: cpLine(0, 1) = k
+        cpLine(1, 0) = x1: cpLine(1, 1) = y1
+        'The tangent must be perpendicular to the CP segment
+        rSegments(0) = ToDblArray(PerpendicularLine_(cpLine, ExtPoint))
+    Case Else
+        err.Raise vbObjectError + 515, , "The given point is inside the circle."
+        Exit Function
+    End Select
+    CircleTangents_ = rSegments
 End Function
 
 Private Function tGamma(ByRef expression As String, ByRef fName As String) As String
