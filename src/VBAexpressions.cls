@@ -315,7 +315,7 @@ Private Sub Class_Initialize()
     P_GALLOPING_MODE = False
     P_FORMATRESULT = False
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
-                            ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
+                            ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;circumcircle;cos;choose;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
                             ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
@@ -325,7 +325,7 @@ Private Sub Class_Initialize()
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
                             ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
-                            ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
+                            ";CholeskySolve;ASCIIchr;Circumcircle;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
                             ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;Incircle;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
@@ -2054,6 +2054,65 @@ Private Function Ceiling(ByRef value As Double) As Double
     Ceiling = tmpResult - ((value <> tmpResult) And (value > 0))
 End Function
 
+''' <summary>
+'''     Returns an array with the coordinates for the center
+'''     and the radius for circle circumscribed by given triangle.
+'''     The result is the circle that passes through the three
+'''     given points.
+''' </summary>
+''' <param name="PointA">First point.</param>
+''' <param name="PointB">Second point.</param>
+''' <param name="PointC">Third point.</param>
+Private Function Circumcircle(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 3
+            tmpEval = Circumcircle_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    ToDblArray(ArrayFromString(tmpData(LB + 1))), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+        Circumcircle = ArrayToString(tmpEval)
+    Else
+        Circumcircle = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    Circumcircle = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function Circumcircle_(PointA() As Double, PointB() As Double, PointC() As Double) As Variant
+    Dim hk() As Double
+    Dim intersectP() As Double
+    Dim result2D(0 To 1, 0 To 1) As Double
+    Dim radius As Double
+    
+    hk = ToDblArray(LinesIntersection( _
+                                SegmentBisector_(PointA, PointB), _
+                                SegmentBisector_(PointB, PointC) _
+                            ) _
+                        )
+    radius = Distance_(hk, PointA)
+    result2D(0, 0) = hk(0): result2D(0, 1) = hk(1)
+    result2D(1, 0) = radius: result2D(1, 1) = radius
+    Circumcircle_ = result2D
+End Function
+
 Private Function CheckArgument(ByRef ArgDefStr As String, ByRef IsFactorial As Boolean) As Boolean
     Dim tmpResult As Boolean
     
@@ -3156,6 +3215,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "Beta_Distribution": EvalFunction = BETADIST(Argument, FunctionName)
             Case "BETAINV": EvalFunction = BETAINV(Argument, FunctionName)
             Case "Bisector": EvalFunction = AngleSegmentBisector(Argument, FunctionName)
+            Case "Circumcircle": EvalFunction = Circumcircle(Argument, FunctionName)
             Case "Cosin": EvalFunction = Cosin(Argument, FunctionName)
             Case "CHISQ": EvalFunction = CHISQ(Argument, FunctionName)
             Case "CholeskyDec": EvalFunction = CholeskyDecomposition(Argument, FunctionName)
