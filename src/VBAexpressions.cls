@@ -7184,6 +7184,13 @@ err_Handler:
                                     d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
+''' <summary>
+'''     Rounds the list of arrays to the number of significant digits given. The
+'''     last argument is interpreted as the significant digits for two or more called arguments.
+''' </summary>
+''' <param name="List">The list of arrays to be rounded.</param>
+''' <param name="DecPlaces">Significance.</param>
+''' <param name="ExtPoint">An external or tangent point for the circle.</param>
 Private Function MROUND(ByRef expression As String, ByRef fName As String) As String
     Dim argsCount As Long
     Dim tmpData() As String
@@ -7200,11 +7207,18 @@ Private Function MROUND(ByRef expression As String, ByRef fName As String) As St
             tmpEval = ArrayToString(MROUND_( _
                             ToDblArray(ArrayFromString(tmpData(LB))) _
                             ))
-        Case 2
-            tmpEval = ArrayToString(MROUND_( _
-                            ToDblArray(ArrayFromString(tmpData(LB))), _
-                            CDbl(tmpData(UB)) _
-                            ))
+        Case Is >= 2  'Round a list of arrays
+            Dim i As Long
+            Dim tmpRounds() As String
+            
+            ReDim tmpRounds(0 To argsCount - 2)
+            For i = 1 To argsCount - 1
+                tmpRounds(i - 1) = ArrayToString(MROUND_( _
+                                        ToDblArray(ArrayFromString(tmpData(i - 1))), _
+                                        CDbl(tmpData(UB)) _
+                                        ))
+            Next i
+            tmpEval = Join(tmpRounds, P_SEPARATORCHAR)
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
