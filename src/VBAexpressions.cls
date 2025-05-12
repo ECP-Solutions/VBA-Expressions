@@ -9451,7 +9451,7 @@ Private Function CircleTangents(ByRef expression As String, ByRef fName As Strin
                             & P_SEPARATORCHAR & _
                              ArrayToString(tmpEval(1))
         Else
-            CircleTangents = ArrayToString(tmpEval)
+            CircleTangents = ArrayToString(tmpEval(0))
         End If
     Else
         CircleTangents = tmpEval
@@ -9477,7 +9477,7 @@ Private Function CircleTangents_(CenterPoint() As Double, Radius As Double, ExtP
     x1 = ExtPoint(0): y1 = ExtPoint(1)
     dx = x1 - h: dy = y1 - k
     d2 = dx * dx + dy * dy
-    Select Case d2 - (Radius * Radius)
+    Select Case Round(d2 - (Radius * Radius), 8)
     Case Is > 0
         Dim alpha As Double, beta As Double
         ReDim rSegments(0 To 1)
