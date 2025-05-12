@@ -317,7 +317,7 @@ Private Sub Class_Initialize()
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;cos;choose;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
-                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
+                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
                             ";msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv" & _
                             ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
@@ -327,7 +327,7 @@ Private Sub Class_Initialize()
                             ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Cosin;aChoose;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
-                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;aInstr;InverseMatrix" & _
+                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;Incircle;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
@@ -3190,6 +3190,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "iBETA": EvalFunction = iBETA(Argument, FunctionName)
             Case "aIff": EvalFunction = Iff_(Argument, FunctionName)
             Case "Incenter": EvalFunction = Incenter(Argument, FunctionName)
+            Case "Incircle": EvalFunction = Incircle(Argument, FunctionName)
             Case "aInstr": EvalFunction = InStr_(Argument, FunctionName)
             Case "InverseMatrix": EvalFunction = InverseMatrix(Argument, FunctionName)
             Case "aIPMT": EvalFunction = IPMT_(Argument, FunctionName)
@@ -5388,7 +5389,7 @@ err_Handler:
 End Function
 
 ''' <summary>
-'''     Returns an array with coordinates for the incenter for the
+'''     Returns an array with the incenter's coordinates for the
 '''     given triangle.
 ''' </summary>
 ''' <param name="PointA">First point.</param>
@@ -5434,6 +5435,63 @@ Private Function InCenter_(PointA() As Double, PointB() As Double, PointC() As D
     AngleBisection1 = ToDblArray(AngleBisector_(PointA, PointB, PointC))
     AngleBisection2 = ToDblArray(AngleBisector_(PointB, PointC, PointA))
     InCenter_ = LinesIntersection(AngleBisection1, AngleBisection2)
+End Function
+
+''' <summary>
+'''     Returns an array with the coordinates for the center
+'''     and the radius for circle inscribed in the given triangle.
+''' </summary>
+''' <param name="PointA">First point.</param>
+''' <param name="PointB">Second point.</param>
+''' <param name="PointC">Third point.</param>
+Private Function Incircle(ByRef expression As String, ByRef fName As String) As String
+    Dim argsCount As Long
+    Dim tmpData() As String
+    Dim tmpEval As Variant
+    Dim LB As Long, UB As Long
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    Select Case argsCount
+        Case 3
+            tmpEval = InCircle_(ToDblArray(ArrayFromString(tmpData(LB))), _
+                                    ToDblArray(ArrayFromString(tmpData(LB + 1))), _
+                                    ToDblArray(ArrayFromString(tmpData(UB))))
+        Case Else
+            tmpEval = e_ValueError
+              BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
+    End Select
+    If IsArray(tmpEval) Then
+        Incircle = ArrayToString(tmpEval)
+    Else
+        Incircle = tmpEval
+    End If
+    Erase tmpData
+    Exit Function
+err_Handler:
+    Incircle = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
+End Function
+
+Private Function InCircle_(PointA() As Double, PointB() As Double, PointC() As Double) As Variant
+    Dim hk() As Double
+    Dim intersectP() As Double
+    Dim aSegment(0 To 1, 0 To 1) As Double
+    Dim result2D(0 To 1, 0 To 1) As Double
+    Dim radius As Double
+    
+    hk = ToDblArray(InCenter_(PointA, PointB, PointC))
+    aSegment(0, 0) = PointA(0): aSegment(0, 1) = PointA(1)
+    aSegment(1, 0) = PointB(0): aSegment(1, 1) = PointB(1)
+    intersectP = ToDblArray(LinesIntersection(aSegment, PerpendicularLine_(aSegment, hk)))
+    radius = Distance_(hk, intersectP)
+    result2D(0, 0) = hk(0): result2D(0, 1) = hk(1)
+    result2D(1, 0) = radius: result2D(1, 1) = radius
+    InCircle_ = result2D
 End Function
 
 Private Function InStr_(ByRef expression As String, ByRef fName As String) As String
@@ -5996,7 +6054,7 @@ Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
     Dim HomogeneousPointsL2(0 To 1, 0 To 2) As Variant
     Dim HomogeneousEcuations(0 To 1, 0 To 2) As Variant
     Dim EcuationsProduct(0 To 0, 0 To 2) As Variant
-    Dim Intersection(0 To 0, 0 To 1) As Variant
+    Dim Intersection(0 To 1) As Variant
     
     If k <= 0 Then k = 1 'Ensure positive scalar value
     m = LBound(PointsInLine1, 1)
@@ -6040,10 +6098,10 @@ Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
     If EcuationsProduct(0, 2) = 0 Then
         LinesIntersection = "#Null" 'Return a Null value. The lines meet at the infinity.
     Else
-        Intersection(0, 0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
-        If Intersection(0, 0) = 0 Then Intersection(0, 0) = Abs(Intersection(0, 0)) 'Avoid negative zero
-        Intersection(0, 1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
-        If Intersection(0, 1) = 0 Then Intersection(0, 1) = Abs(Intersection(0, 1))
+        Intersection(0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
+        If Intersection(0) = 0 Then Intersection(0) = Abs(Intersection(0)) 'Avoid negative zero
+        Intersection(1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
+        If Intersection(1) = 0 Then Intersection(1) = Abs(Intersection(1))
         LinesIntersection = Intersection
     End If
 End Function
