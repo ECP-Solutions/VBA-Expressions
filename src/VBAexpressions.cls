@@ -320,7 +320,7 @@ Private Sub Class_Initialize()
                             ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
                             ";msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv" & _
-                            ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
+                            ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;getfromlist;sqr;sqrt;sum;studt;switch" & _
                             ";syd;tan;timeserial;timevalue;tinv;tinv_1t;tinv_2t;trim;ucase;weekday" & _
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
@@ -332,7 +332,7 @@ Private Sub Class_Initialize()
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
                             ";aNow;aNPER;aNPV;ParallelLine;Percent;PerpendicularLine;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM" & _
-                            ";aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;SquareRoot;SquareRoot;SUM" & _
+                            ";aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;GetFromList;SquareRoot;SquareRoot;SUM" & _
                             ";STUDT;aSwitch;aSYD;Tangent;aTimeSerial;aTimeValue;TINV;TINV_1T;TINV_2T;aTrim" & _
                             ";aUcase;aWweekDay;aWeekDayName;aYear"
     FunctionsId() = Split(BuildinFunctIDList, ";")
@@ -3299,6 +3299,7 @@ Private Function EvalFunction(ByRef Argument As String, ByRef FunctionName As St
             Case "Sign": EvalFunction = Sign(Argument, FunctionName)
             Case "Sine": EvalFunction = Sine(Argument, FunctionName)
             Case "SolveLinearSystem": EvalFunction = Solve(Argument, FunctionName)
+            Case "GetFromList": EvalFunction = GetFromList(Argument, FunctionName)
             Case "aSLN": EvalFunction = SLN_(Argument, FunctionName)
             Case "SquareRoot": EvalFunction = SquareRoot(Argument, FunctionName)
             Case "SUM": EvalFunction = SUM(Argument, FunctionName)
@@ -6115,7 +6116,7 @@ Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
     Dim HomogeneousPointsL2(0 To 1, 0 To 2) As Variant
     Dim HomogeneousEcuations(0 To 1, 0 To 2) As Variant
     Dim EcuationsProduct(0 To 0, 0 To 2) As Variant
-    Dim Intersection(0 To 1) As Variant
+    Dim intersection(0 To 1) As Variant
     
     If k <= 0 Then k = 1 'Ensure positive scalar value
     m = LBound(PointsInLine1, 1)
@@ -6159,11 +6160,11 @@ Private Function LinesIntersection(ByRef PointsInLine1 As Variant, _
     If EcuationsProduct(0, 2) = 0 Then
         LinesIntersection = "#Null" 'Return a Null value. The lines meet at the infinity.
     Else
-        Intersection(0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
-        If Intersection(0) = 0 Then Intersection(0) = Abs(Intersection(0)) 'Avoid negative zero
-        Intersection(1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
-        If Intersection(1) = 0 Then Intersection(1) = Abs(Intersection(1))
-        LinesIntersection = Intersection
+        intersection(0) = k * EcuationsProduct(0, 0) / EcuationsProduct(0, 2)
+        If intersection(0) = 0 Then intersection(0) = Abs(intersection(0)) 'Avoid negative zero
+        intersection(1) = k * EcuationsProduct(0, 1) / EcuationsProduct(0, 2)
+        If intersection(1) = 0 Then intersection(1) = Abs(intersection(1))
+        LinesIntersection = intersection
     End If
 End Function
 
@@ -7689,7 +7690,7 @@ Private Function OverLoadVarName(ByRef expression As String, ByRef fName As Stri
             If argsCount = 1 Then
                 tmpEval = CStr(P_SCOPE.VarValue2(fName, True)(CLng(tmpData(LB))))
             Else
-                tmpEval = CStr(P_SCOPE.VarValue2(fName, True)(CLng(tmpData(LB)), CLng(tmpData(UB))))
+                tmpEval = CStr(P_SCOPE.VarValue2(fName, True)(CLng(tmpData(LB)))(CLng(tmpData(UB))))
             End If
         Case Else
             tmpEval = e_ValueError
@@ -9117,11 +9118,24 @@ Private Function SplitArgs(ByRef args As String) As String()
 End Function
 
 ''' <summary>
-'''     Splits a list into a one-dimentional array.
+'''     Returns an element from the given list. The last argument
+'''     is used as the index
 ''' </summary>
 ''' <param name="aList">The list to split.</param>
-Public Function SplitList(ByRef aList As String) As String()
-    SplitList = SplitArgs(aList)
+''' <param name="index">The list to split.</param>
+Private Function GetFromList(ByRef expression As String, ByRef fName As String) As String
+    Dim tmpData() As String
+    Dim tmpEval As String
+    
+    On Error GoTo err_Handler
+    tmpData() = SplitArgs(expression)
+    tmpEval = tmpData(tmpData(UBound(tmpData)))
+    GetFromList = tmpEval: Erase tmpData
+    Exit Function
+err_Handler:
+    GetFromList = e_ValueError
+    BuildErrMessage errEvalError, d_lCurly & fName & d_rCurly & " | Error#: " & err.Number & d_Space & _
+                                    d_lParenthesis & err.Description & d_rParenthesis
 End Function
 
 ''' <summary>
