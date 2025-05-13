@@ -9126,11 +9126,22 @@ End Function
 Private Function GetFromList(ByRef expression As String, ByRef fName As String) As String
     Dim tmpData() As String
     Dim tmpEval As String
+    Dim argsCount As Long
+    Dim LB As Long, UB As Long
+    Dim idx As Long
     
     On Error GoTo err_Handler
     tmpData() = SplitArgs(expression)
-    tmpEval = tmpData(tmpData(UBound(tmpData)))
-    GetFromList = tmpEval: Erase tmpData
+    LB = LBound(tmpData)
+    UB = UBound(tmpData)
+    argsCount = UB - LB + 1
+    idx = CLng(tmpData(UB))
+    If idx < argsCount - 1 Then
+        tmpEval = tmpData(idx)
+        GetFromList = tmpEval: Erase tmpData
+    Else
+        GetFromList = e_ValueError
+    End If
     Exit Function
 err_Handler:
     GetFromList = e_ValueError
