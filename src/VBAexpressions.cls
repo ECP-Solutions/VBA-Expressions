@@ -9117,6 +9117,14 @@ Private Function SplitArgs(ByRef args As String) As String()
 End Function
 
 ''' <summary>
+'''     Splits a list into a one-dimentional array.
+''' </summary>
+''' <param name="aList">The list to split.</param>
+Public Function SplitList(ByRef aList As String) As String()
+    SplitList = SplitArgs(aList)
+End Function
+
+''' <summary>
 '''     Splits an array function argument and returns an array with the bounds
 '''     of the passed string array. In the returned array, the lower index
 '''     indicates the argument max row index and the upper index indicates the
