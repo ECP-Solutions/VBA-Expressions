@@ -174,7 +174,7 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
             If IsAnArray Then
-                VarValue2 aVarKey, True
+                Me.VarValue2(ValueIdx, True) = aVarValue
             End If
         Else
             AddVariable CStr(aVarKey), ConstKey
@@ -187,7 +187,7 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
             If IsAnArray Then
-                VarValue2 aVarKey, True
+                Me.VarValue2(ValueIdx, True) = aVarValue
             End If
         End If
     End If
