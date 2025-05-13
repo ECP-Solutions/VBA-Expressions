@@ -162,10 +162,10 @@ End Property
 
 Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
     Dim IsAnArray As Boolean
+    Dim ValueIdx As Long
     
     IsAnArray = (aVarValue Like "{{*}}")
     If Not IsNumeric(aVarKey) Then
-        Dim ValueIdx As Long
         Dim ConstKey As String
         
         ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
@@ -238,8 +238,8 @@ End Property
 ''' </summary>
 Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarValue As Variant)
     If arrHelper Is Nothing Then Set arrHelper = New VBAexpressions
+    Dim ValueIdx As Long
     If Not IsNumeric(aVarKey) Then
-        Dim ValueIdx As Long
         Dim ConstKey As String
         
         ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
