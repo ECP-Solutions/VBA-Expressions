@@ -161,6 +161,9 @@ Public Property Get VarValue(aVarKey As Variant) As String
 End Property
 
 Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
+    Dim IsAnArray As Boolean
+    
+    IsAnArray = (aVarValue Like "{{*}}")
     If Not IsNumeric(aVarKey) Then
         Dim ValueIdx As Long
         Dim ConstKey As String
@@ -169,6 +172,10 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
         If ValueIdx > -1 Then
             P_EXPR_VARIABLES.Storage(ValueIdx).value = aVarValue
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
+            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
+            If IsAnArray Then
+                VarValue2 aVarKey, True
+            End If
         Else
             AddVariable CStr(aVarKey), ConstKey
             Me.VarValue(aVarKey) = aVarValue
@@ -178,6 +185,10 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
         If ValueIdx > -1 And ValueIdx <= P_EXPR_VARIABLES.index Then
             P_EXPR_VARIABLES.Storage(ValueIdx).value = aVarValue
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
+            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
+            If IsAnArray Then
+                VarValue2 aVarKey, True
+            End If
         End If
     End If
 End Property
