@@ -238,7 +238,7 @@ Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarV
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             If treatAsArray Then
                 P_EXPR_VARIABLES.Storage(ValueIdx). _
-                                    value2 = arrHelper.ArrayFromString(CStr(aVarValue))
+                                    value2 = arrHelper.ArrayFromString2(CStr(aVarValue))
             End If
         Else
             AddVariable CStr(aVarKey), ConstKey
@@ -252,7 +252,7 @@ Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarV
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             If treatAsArray Then
                 P_EXPR_VARIABLES.Storage(ValueIdx). _
-                                    value2 = arrHelper.ArrayFromString(CStr(aVarValue))
+                                    value2 = arrHelper.ArrayFromString2(CStr(aVarValue))
             End If
         End If
     End If
