@@ -317,22 +317,22 @@ Private Sub Class_Initialize()
     BuildinFunctIDList = "abs;floor;achisq;asin;acos;aerf;afishf;agauss;asc;anorm;atn;astudt;array;avg;beta.dist" & _
                             ";bisector;betainv;ceil;chisq;cholesky;cholinverse;cholsolve;chr;circumcircle;cos;choose;circletang;date;dateadd;datediff" & _
                             ";datepart;dateserial;datevalue;day;ddb;det;distance;erf;exp;fishf;fit;format;fv;fzero" & _
-                            ";gamma;gammaln;gauss;get;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
+                            ";gamma;gammaln;gauss;get;getfromlist;hour;ibeta;iff;incenter;incircle;instr;inverse;ipmt;irr;lcase;left;len;linesintersect;log;lgn" & _
                             ";ln;lsqrsolve;ludecomp;lusolve;max;mid;min;minute;mirr;mlr;mmult;mneg;mround" & _
                             ";msum;mtranspose;month;monthname;norm;now;nper;npv;parallel;percent;perpendicular;pmt;ppmt;pow;pv" & _
-                            ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;getfromlist;sqr;sqrt;sum;studt;switch" & _
+                            ";qr;rate;rem;replace;right;round;sgn;sin;sln;solve;sqr;sqrt;sum;studt;switch" & _
                             ";syd;tan;timeserial;timevalue;tinv;tinv_1t;tinv_2t;trim;ucase;weekday" & _
                             ";weekdayname;year"
     BuildinFunctNameList = "Absolute;aFloor;ACHISQ;ArcSin;ArcCos;AERF;AFISHF;AGAUSS;ASCII;ANORM;ArcTan" & _
                             ";ASTUDT;strArray;Average;Beta_Distribution;Bisector;BETAINV;aCeiling;CHISQ;CholeskyDec;CholeskyInverseMatrix" & _
                             ";CholeskySolve;ASCIIchr;Circumcircle;Cosin;aChoose;CircleTangents;aDate;aDateAdd;aDateDiff;aDatePart;aDateSerial" & _
                             ";aDateValue;aDay;aDDB;MatrixDeterminant;Distance;ERF;ExpEuler;FISHF;CurveFit" & _
-                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;aHour;iBETA;aIff;Incenter;Incircle;aInstr;InverseMatrix" & _
+                            ";aFormat;aFV;FunctionZero;Gamma;GammaLN;GAUSS;GET;GetFromList;aHour;iBETA;aIff;Incenter;Incircle;aInstr;InverseMatrix" & _
                             ";aIPMT;aIRR;LowerCase;aLeft;aLen;LinesIntersect;Logarithm;LgN;LN;LSQRsolve;LUdecomposition" & _
                             ";LUSolveLinearSystem;Max;Middle;Min;aMinute;aMIRR;MultiLinearReg;MatrixMult" & _
                             ";MatrixNegation;MatrixRound;MatrixSum;MatrixTranspose;aMonth;aMonthName;NORM" & _
                             ";aNow;aNPER;aNPV;ParallelLine;Percent;PerpendicularLine;aPMT;aPPMT;Power;aPV;QRdecomposition;aRATE;REM" & _
-                            ";aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;GetFromList;SquareRoot;SquareRoot;SUM" & _
+                            ";aReplace;aRight;ROUND;Sign;Sine;aSLN;SolveLinearSystem;SquareRoot;SquareRoot;SUM" & _
                             ";STUDT;aSwitch;aSYD;Tangent;aTimeSerial;aTimeValue;TINV;TINV_1T;TINV_2T;aTrim" & _
                             ";aUcase;aWweekDay;aWeekDayName;aYear"
     FunctionsId() = Split(BuildinFunctIDList, ";")
