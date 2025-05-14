@@ -385,6 +385,43 @@ Sub RunAllTests
 			&quot;MROUND(PERPENDICULAR({{12;0};{0;5}};{{3.1441;0}});2)&quot;, _
 			&quot;{{3.14;0};{4.45;3.14}}&quot; _
 		)
+		Run( _
+			&quot;Segment Bisector&quot;, _
+			&quot;MROUND(BISECTOR({{-4;-2}};{{-2;6}});4)&quot;, _
+			&quot;{{-3;2};{-2;1.75}}&quot; _
+		)
+	Run( _
+			&quot;Angle Bisector&quot;, _
+			&quot;MROUND(BISECTOR({{-2.4387;6.8161}};{{-4;3}};{{-0.4613;0.8839}});4)&quot;, _
+			&quot;{{-4;3};{-3.0513;3.3162}}&quot; _
+		)
+	Run( _
+			&quot;Triangle incenter&quot;, _
+			&quot;MROUND(INCENTER({{0;0}};{{-4;-2}};{{-2;6}});4)&quot;, _
+			&quot;{{-1.7982;0.7448}}&quot; _
+		)
+	Run( _
+			&quot;Inscribed circle&quot;, _
+			&quot;MROUND(INCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4)&quot;, _
+			&quot;{{-1.7982;0.7448};{1.4704;1.4704}}&quot; _
+		)
+	Run( _
+			&quot;Circumscribed circle&quot;, _
+			&quot;MROUND(CIRCUMCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4)&quot;, _
+			&quot;{{-3.5714;2.1429};{4.165;4.165}}&quot; _
+		)
+	Run( _
+			&quot;Two tangents of a circle&quot;, _
+			&quot;MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{2;5}});4)&quot;, _
+			&quot;{{-2.4387;6.8161};{2;5}};{{2;5};{-0.4613;0.8839}}&quot; _
+		)
+	Run( _
+			&quot;Tangent for a point on a circle&quot;, _
+			&quot;MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{0;4}});4)&quot;, _
+			&quot;{{0;4};{1;0}}&quot; _
+		)
+	VALIDATEcircleTangents(&quot;Validate circle&apos;s computed tangent&quot;)
+	
 	SF_Exception.debugprint(&quot;Passed tests:&quot;,sAcum)	
 	SF_Exception.debugprint(&quot;Failed tests:&quot;,tTotal - sAcum)	
 	SF_Exception.debugprint(&quot;Passed tests Ratio:&quot;,Round(100*sAcum/tTotal,2) &amp;&quot;%&quot;)
@@ -400,10 +437,10 @@ Private Sub Run(testName As String,expr As String, _
                         expr, varval _
                         )
     If expect &lt;&gt; actual Then 
-    	SF_Exception.debugprint(&quot;x Failed test &quot; &amp; testName, expect,&quot;&lt;&gt;&quot;,actual)
+    	SF_Exception.debugprint(&quot;x Failed test-&gt; &quot; &amp; testName, expect,&quot;&lt;&gt;&quot;,actual)
     Else
     	sAcum=sAcum+1
-    	SF_Exception.debugprint(&quot;+ Success test &quot; &amp; testName)
+    	SF_Exception.debugprint(&quot;+ Success test-&gt; &quot; &amp; testName)
     End If
 
 TestExit:
@@ -483,6 +520,55 @@ Private Sub ArrayConstructorsAndParsers(testName As String)
         actual = .ArrayToString(jaggedArr)
     End With
     expect = &quot;{{1;0;4};{{1;1;6};{2;3}};{3};{2;5}}&quot;
+    
+    If expect &lt;&gt; actual Then 
+    	SF_Exception.debugprint(&quot;x Failed test &quot; &amp; testName, expect,&quot;&lt;&gt;&quot;,actual)
+    Else
+    	sAcum=sAcum+1
+    	SF_Exception.debugprint(&quot;+ Success test &quot; &amp; testName)
+    End If
+
+TestExit:
+    Exit Sub
+TestFail:
+    SF_Exception.debugprint(&quot;Test &quot; &amp; testName &amp; &quot; raised an error: #&quot; &amp; err.Number &amp; &quot; - &quot; &amp; err.Description)
+    Resume TestExit			
+End Sub
+Private Sub DEVZONE()
+	GlobalScope.BasicLibraries.loadLibrary(&quot;VBAExpressionsLib&quot;)
+	GlobalScope.BasicLibraries.loadLibrary(&quot;ScriptForge&quot;)
+	createscriptservice(&quot;Exception&quot;)
+	SF_Exception.consoleClear()
+	&apos;CODE HERE
+	
+	SF_Exception.console()
+End Sub
+
+&apos;&apos;&apos; &lt;summary&gt;
+&apos;&apos;&apos;     The tangents of a circle are, in fact, perperdicular to
+&apos;&apos;&apos;     circles&apos;s radius. So we can check the computations.
+&apos;&apos;&apos; &lt;/summary&gt;
+Private Sub VALIDATEcircleTangents(testName As String)
+    On Error GoTo TestFail
+    Dim expect As String
+    Dim jaggedArr() As Variant
+    
+    tTotal=tTotal+1
+    Set Evaluator = New VBAexpressions
+    With Evaluator
+        .Create &quot;GET(&apos;tangentLine&apos;;&quot; _
+                        &amp; &quot;GETFROMLIST(CIRCLETANG(GET(&quot; _
+                                        &amp; &quot;&apos;point&apos;;{{-4;3}});GET(&apos;radius&apos;;ROUND(SQRT(17);4));{{2;5}})&quot; _
+                                &amp; &quot;;0))&quot;: .Eval
+        &apos;select one on the tangent lines and compute a perpendicular
+        &apos;passing through &lt;&lt;point&gt;&gt;
+        .Create &quot;GET(&apos;perpLine&apos;;PERPENDICULAR(tangentLine;point))&quot;, False: .Eval
+        .Create &quot;GET(&apos;intersection&apos;;LINESINTERSECT(tangentLine;perpLine))&quot;, False: .Eval
+        .Create &quot;GET(&apos;distance.point.intersection&apos;;ROUND(DISTANCE(point;intersection);4))&quot;, False: .Eval
+        .Create &quot;GET(&apos;valid.tangent&apos;;distance.point.intersection=radius)&quot;, False: .Eval
+        actual = .result
+    End With
+    expect = &quot;True&quot;
     
     If expect &lt;&gt; actual Then 
     	SF_Exception.debugprint(&quot;x Failed test &quot; &amp; testName, expect,&quot;&lt;&gt;&quot;,actual)
