@@ -5795,7 +5795,7 @@ err_Handler:
     IsArrayAllocated = False
 End Function
 
-Public Function IsAssigned(aVarName As String) As Boolean
+Private Function IsAssigned(aVarName As String) As Boolean
     IsAssigned = (LenB(P_SCOPE.VarValue(aVarName)) > 0)
 End Function
 
