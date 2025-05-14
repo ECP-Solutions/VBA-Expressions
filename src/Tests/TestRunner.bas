@@ -1224,6 +1224,22 @@ TestFail:
 End Sub
 
 '@TestMethod("Analytical Geometry")
+Private Sub testAngleBisectorLine()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(BISECTOR({{-2.4387;6.8161}};{{-4;3}};{{-0.4613;0.8839}});4)" _
+                        )
+    expected = "{{-4;3};{-3.0513;3.3162}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
 Private Sub testTriangleIncenter()
     On Error GoTo TestFail
 
