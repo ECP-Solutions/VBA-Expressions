@@ -162,10 +162,10 @@ End Property
 
 Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
     Dim IsAnArray As Boolean
-    Dim ValueIdx As Long
     
     IsAnArray = (aVarValue Like "{{*}}")
     If Not IsNumeric(aVarKey) Then
+        Dim ValueIdx As Long
         Dim ConstKey As String
         
         ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
@@ -238,8 +238,8 @@ End Property
 ''' </summary>
 Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarValue As Variant)
     If arrHelper Is Nothing Then Set arrHelper = New VBAexpressions
-    Dim ValueIdx As Long
     If Not IsNumeric(aVarKey) Then
+        Dim ValueIdx As Long
         Dim ConstKey As String
         
         ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
@@ -347,6 +347,24 @@ Public Function CopyScope(ByRef sourceScope As VBAexpressionsScope) As VBAexpres
     Next
     Set CopyScope = Me
 End Function
+
+Public Function CopyToScope() As VBAexpressionsScope
+    Dim i As Long
+    Dim tmpValue As String
+    Dim tmpName As String
+    Dim tmpScope As VBAexpressionsScope
+    
+    Set tmpScope = New VBAexpressionsScope
+    For i = 0 To P_EXPR_VARIABLES.index
+        tmpName = P_EXPR_VARIABLES.Storage(i).name
+        tmpValue = P_EXPR_VARIABLES.Storage(i).value
+        If tmpValue <> vbNullString Then
+            tmpScope.VarValue(tmpName) = tmpValue
+        End If
+    Next
+    Set CopyToScope = tmpScope
+End Function
+
 Private Sub ExpandCBbuffer(ByRef aBuffer As ClusterBuffer)
     aBuffer.Capacity = 2 * (aBuffer.Capacity + 1)
     ReDim Preserve aBuffer.Storage(0 To aBuffer.Capacity - 1)
