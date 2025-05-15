@@ -3760,8 +3760,6 @@ End Function
 &apos;&apos;&apos; &lt;summary&gt;
 &apos;&apos;&apos;     Finds a zero of a univariate function ussing a modified bisection method.
 &apos;&apos;&apos;     aFunction must be a continuous function f(x) for the interval a &lt;= x &lt;= b.
-&apos;&apos;&apos;     The function zeroing will be performed on the unassigned variable. If more
-&apos;&apos;&apos;     than one variables are unassigned, an error will be returned.
 &apos;&apos;&apos; &lt;/summary&gt;
 &apos;&apos;&apos; &lt;param name=&quot;aFunction&quot;&gt;Inline function.&lt;/param&gt;
 &apos;&apos;&apos; &lt;param name=&quot;a&quot;&gt;Leftmost interval value.&lt;/param&gt;
@@ -3795,16 +3793,13 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
     aZero = 10 * epsilon
     With fEvalHelper
         .Create aFunction
-        Set .EvalScope = .EvalScope.CopyScope(P_SCOPE)
         tmpVar() = Split(.CurrentVariables, &quot;; &quot;)
         varLB = LBound(tmpVar)
-        If UBound(tmpVar) - varLB &gt; 0 Then  &apos;Check multivariate functions
+        If UBound(tmpVar) - varLB &gt; 0 Then  &apos;Reject multivariate functions
             For i = varLB To UBound(tmpVar)
                 If Not IsConstant(tmpVar(i)) Then
-                    If Not IsAssigned(tmpVar(i)) Then
-                    	varCounter = varCounter + 1
-                    	varIdx = i
-                    End If
+                    varCounter = varCounter + 1
+                    varIdx = i
                 End If
             Next i
             If varCounter &gt; 1 Then
@@ -3865,16 +3860,13 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
         .LetVarValue(tmpVar(varIdx), tmpResult)
         If Round(tmpFzeroEval, Len(CStr(1 / aZero)) - 1) = 0 Then
             If includeVarNames Then
-                fZeroMBM = ToLiteralString( _
-                                tmpVar(varIdx) &amp; d_Space &amp; op_equal _
-                                &amp; d_Space &amp; tmpResult)
+                fZeroMBM = ToLiteralString(.CurrentVarValues)
             Else
                 fZeroMBM = tmpResult
             End If
         Else
             fZeroMBM = e_ValueError
         End If
-        Set P_SCOPE = .EvalScope.CopyToScope
     End With
 fZeroMBM_terminate:
     Set fEvalHelper = Nothing

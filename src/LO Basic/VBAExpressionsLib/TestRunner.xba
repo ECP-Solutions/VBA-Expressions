@@ -582,4 +582,52 @@ TestFail:
     SF_Exception.debugprint(&quot;Test &quot; &amp; testName &amp; &quot; raised an error: #&quot; &amp; err.Number &amp; &quot; - &quot; &amp; err.Description)
     Resume TestExit			
 End Sub
+
+Private Sub LargestSquareInRATriangle(testName As String)
+    On Error GoTo TestFail
+    Dim expect As String
+    Dim contFunct As String
+    
+    tTotal=tTotal+1
+    Set Evaluator = New VBAexpressions
+    contFunct = &quot;FZERO(&apos;GET(_side_;DISTANCE(LINESINTERSECT(&quot; _
+                                    &amp; &quot;PERPENDICULAR(hyp;{{x;0}});hyp)&quot; _
+                                &amp; &quot;;{{x;0}}))&quot; _
+                        &amp; &quot;-&quot; _
+                &amp; &quot;DISTANCE(LINESINTERSECT(&quot; _
+                                &amp; &quot;PERPENDICULAR(PERPENDICULAR(&quot; _
+                                                &amp; &quot;hyp;{{x;0}})&quot; _
+                                            &amp; &quot;;{{x;0}})&quot; _
+                                &amp; &quot;;leg.a)&quot; _
+                        &amp; &quot;;{{x;0}})&apos;&quot; _
+                    &amp; &quot;;0;12)&quot;
+    With Evaluator
+		&apos;Triangle hypotenuse
+        .Create &quot;GET(&apos;hyp&apos;;{{12;0};{0;5}})&quot;: .Eval
+        &apos;Leg a definition
+        .Create &quot;GET(_leg.a_;{{0;0};{0;5}})&quot;, False: .Eval
+        .Create contFunct, False: .Eval
+        actual = .result
+        If .ErrorType = 0 Then
+            .Create &quot;ROUND(side^2;4)&quot;, False: .Eval
+            If .ErrorType = 0 Then
+                actual .result
+            End If
+        End If
+    End With
+    expect = &quot;11.6016&quot;
+    
+    If expect &lt;&gt; actual Then 
+    	SF_Exception.debugprint(&quot;x Failed test &quot; &amp; testName, expect,&quot;&lt;&gt;&quot;,actual)
+    Else
+    	sAcum=sAcum+1
+    	SF_Exception.debugprint(&quot;+ Success test &quot; &amp; testName)
+    End If
+
+TestExit:
+    Exit Sub
+TestFail:
+    SF_Exception.debugprint(&quot;Test &quot; &amp; testName &amp; &quot; raised an error: #&quot; &amp; err.Number &amp; &quot; - &quot; &amp; err.Description)
+    Resume TestExit			
+End Sub
 </script:module>
