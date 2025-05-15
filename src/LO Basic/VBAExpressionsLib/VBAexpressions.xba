@@ -147,6 +147,7 @@ Private Const d_rParenthesis As String = &quot;)&quot;
 Private Const d_lSquareB As String = &quot;[&quot;
 Private Const d_rSquareB As String = &quot;]&quot;
 Private Const d_Apostrophe As String = &quot;&apos;&quot;
+Private Const d_Underscore As String = &quot;_&quot;
 Private Const d_Space As String = &quot; &quot;
 Private Const e_ValueError As String = &quot;#VALUE!&quot;
 Private Const Tiny As Double = 1E-20
@@ -3759,6 +3760,8 @@ End Function
 &apos;&apos;&apos; &lt;summary&gt;
 &apos;&apos;&apos;     Finds a zero of a univariate function ussing a modified bisection method.
 &apos;&apos;&apos;     aFunction must be a continuous function f(x) for the interval a &lt;= x &lt;= b.
+&apos;&apos;&apos;     The function zeroing will be performed on the unassigned variable. If more
+&apos;&apos;&apos;     than one variables are unassigned, an error will be returned.
 &apos;&apos;&apos; &lt;/summary&gt;
 &apos;&apos;&apos; &lt;param name=&quot;aFunction&quot;&gt;Inline function.&lt;/param&gt;
 &apos;&apos;&apos; &lt;param name=&quot;a&quot;&gt;Leftmost interval value.&lt;/param&gt;
@@ -3792,13 +3795,16 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
     aZero = 10 * epsilon
     With fEvalHelper
         .Create aFunction
+        Set .EvalScope = .EvalScope.CopyScope(P_SCOPE)
         tmpVar() = Split(.CurrentVariables, &quot;; &quot;)
         varLB = LBound(tmpVar)
-        If UBound(tmpVar) - varLB &gt; 0 Then  &apos;Reject multivariate functions
+        If UBound(tmpVar) - varLB &gt; 0 Then  &apos;Check multivariate functions
             For i = varLB To UBound(tmpVar)
                 If Not IsConstant(tmpVar(i)) Then
-                    varCounter = varCounter + 1
-                    varIdx = i
+                    If Not IsAssigned(tmpVar(i)) Then
+                    	varCounter = varCounter + 1
+                    	varIdx = i
+                    End If
                 End If
             Next i
             If varCounter &gt; 1 Then
@@ -3859,13 +3865,16 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
         .LetVarValue(tmpVar(varIdx), tmpResult)
         If Round(tmpFzeroEval, Len(CStr(1 / aZero)) - 1) = 0 Then
             If includeVarNames Then
-                fZeroMBM = ToLiteralString(.CurrentVarValues)
+                fZeroMBM = ToLiteralString( _
+                                tmpVar(varIdx) &amp; d_Space &amp; op_equal _
+                                &amp; d_Space &amp; tmpResult)
             Else
                 fZeroMBM = tmpResult
             End If
         Else
             fZeroMBM = e_ValueError
         End If
+        Set P_SCOPE = .EvalScope.CopyToScope
     End With
 fZeroMBM_terminate:
     Set fEvalHelper = Nothing
@@ -4528,13 +4537,24 @@ End Function
 
 Private Function GetLiteralStringGap(startPos As Long, ByRef expression As String) As Variant
     Dim literalStrGap() As Long
+    Dim tmpPos1 As Long
+    Dim tmpPos2 As Long
     Dim tmpPos As Long
+    Dim markerChr As String
     ReDim literalStrGap(0 To 1)
     
-    tmpPos = InStr(startPos, expression, d_Apostrophe)
+    tmpPos1 = InStr(startPos, expression, d_Apostrophe)
+    tmpPos2 = InStr(startPos, expression, d_Underscore)
+    If tmpPos1 &lt;= tmpPos2 Then &apos;Leftmost one
+        tmpPos = tmpPos1
+        markerChr = d_Apostrophe
+    Else
+        tmpPos = tmpPos2
+        markerChr = d_Underscore
+    End If
     If tmpPos Then
         literalStrGap(0) = tmpPos
-        literalStrGap(1) = InStr(tmpPos + 1, expression, d_Apostrophe)
+        literalStrGap(1) = InStr(tmpPos + 1, expression, markerChr)
     End If
     GetLiteralStringGap = literalStrGap
 End Function
@@ -4651,7 +4671,7 @@ Private Function GetOPeratorSymbolPos(ByRef expression As String, _
     Dim tmpResult As Long
     
     tmpResult = strVBA.InStrB(StartPosition, expression, OperatorSymbol)
-    Do While IsSymbolInLiteralString(expression, tmpResult)
+    Do While IsSymbolInLiteralString(expression, tmpResult) And tmpResult
         tmpResult = strVBA.InStrB(tmpResult + strVBA.LenB2(OperatorSymbol), expression, OperatorSymbol)
     Loop
     GetOPeratorSymbolPos = tmpResult
@@ -5049,11 +5069,11 @@ Private Sub GetTokenEnd(ByRef expression As String, ByRef startIndex As Long, By
     curChar = strVBA.MidB(expression, outLng, 2)
     &apos;@--------------------------------------------------------------------
     &apos; Skip literal strings
-    If curChar = d_Apostrophe Then
+    If curChar = d_Apostrophe Or curChar = d_Underscore Then
         Do
             outLng = outLng + 2
             curChar = strVBA.MidB(expression, outLng, 2)
-        Loop While curChar &lt;&gt; d_Apostrophe And outLng &lt; lenExpr
+        Loop While ((curChar &lt;&gt; d_Apostrophe) Or (curChar &lt;&gt; d_Underscore)) And outLng &lt; lenExpr
         If outLng &gt;= lenExpr Then Exit Sub
     End If
     Do
@@ -5136,11 +5156,11 @@ Private Sub GetTokenStart(ByRef expression As String, ByRef startIndex As Long, 
     curChar = strVBA.MidB(expression, outLng, 2)
     &apos;@--------------------------------------------------------------------
     &apos; Skip literal strings
-    If curChar = d_Apostrophe Then
+    If curChar = d_Apostrophe Or curChar = d_Underscore Then
         Do
             outLng = outLng - 2
             curChar = strVBA.MidB(expression, outLng, 2)
-        Loop While curChar &lt;&gt; d_Apostrophe And outLng &gt; 1
+        Loop While ((curChar &lt;&gt; d_Apostrophe) Or (curChar &lt;&gt; d_Underscore)) And outLng &gt; 1
         If outLng = 1 Then Exit Sub
     End If
     Do While (strVBA.InStrB(1, op_AllItems, curChar) = 0) And outLng &gt; 1
@@ -5747,6 +5767,10 @@ err_Handler:
     IsArrayAllocated = False
 End Function
 
+Private Function IsAssigned(aVarName As String) As Boolean
+    IsAssigned = (strVBA.LenB(P_SCOPE.VarValue(aVarName)) &gt; 0)
+End Function
+
 Private Function IsBoolean(ByRef expression As String) As Boolean
     IsBoolean = (expression = &quot;true&quot;)
     If Not IsBoolean Then
@@ -5831,6 +5855,19 @@ Private Function IsExtAlphaNumeric(ByRef Char As String) As Boolean
     End If
 End Function
 
+Private Function IsInList(ByRef aList As Variant, aValue As String) As Boolean
+    Dim i As Long, j As Long
+    Dim tmpResult As Boolean
+    
+    i = LBound(aList)
+    j = UBound(aList)
+    Do
+        tmpResult = (FormatLiteralString(CStr(aList(i)), True) = aValue)
+        i = i + 1
+    Loop While i &lt;= j And Not tmpResult
+    IsInList = tmpResult
+End Function
+
 Private Function IsLetter(ByRef Char As String) As Boolean
     If strVBA.LenB2(Char) Then
         Select Case AscW(Char)
@@ -5858,6 +5895,8 @@ Private Function IsLiteralString(ByRef aString As String) As Boolean
     If aString &lt;&gt; vbNullString Then
         If AscW(aString) = 39 Then &apos;Apostrophe
             IsLiteralString = (strVBA.InStrB(3, aString, d_Apostrophe) = strVBA.LenB2(aString) - 1)
+        ElseIf AscW(aString) = 95 Then &apos;Underscore
+            IsLiteralString = (strVBA.InStrB(3, aString, d_Underscore) = strVBA.LenB2(aString) - 1)
         Else
             IsLiteralString = False
         End If
@@ -5890,17 +5929,14 @@ Private Function IsSavedPredictorName(ByRef aName As String, ByRef aNamesList() 
 End Function
 
 Private Function IsSymbolInLiteralString(ByRef expression As String, SymbolPos As Long) As Boolean
-    Dim flagCounter As Long
     Dim tmpPos As Long
+    Dim literalGap() As Long
     
-    tmpPos = strVBA.InStrB(1, expression, d_Apostrophe)
-    If tmpPos Then
-        Do While tmpPos &lt; SymbolPos And tmpPos &gt; 0
-            flagCounter = flagCounter + 1
-            tmpPos = strVBA.InStrB(tmpPos + 2, expression, d_Apostrophe)
-        Loop
-    End If
-    IsSymbolInLiteralString = flagCounter And 1
+    literalGap() = GetLiteralStringGap(1, expression)
+    Do While (literalGap(1) &lt; SymbolPos) And (literalGap(1) &gt; 0)
+        literalGap() = GetLiteralStringGap(literalGap(1) + 1, expression)
+    Loop
+    IsSymbolInLiteralString = ((SymbolPos &gt; literalGap(0)) And (SymbolPos &lt; literalGap(1)))
 End Function
 
 Private Function IsTwiceJaggedArr(ByRef arr As Variant, elIdx As Long) As Boolean
@@ -7765,16 +7801,20 @@ Private Sub ParseVariables(ByRef expression As String)
     Do
         tmpChr = strVBA.MidB(expression, curPos, 2)
         varLen = 0
-        If IsLetter(tmpChr) Or tmpChr = d_Apostrophe Then
+        If IsLetter(tmpChr) Or tmpChr = d_Apostrophe Or tmpChr = d_Underscore Then
             varInitPos = curPos
-            If tmpChr &lt;&gt; d_Apostrophe Then
+            If tmpChr &lt;&gt; d_Apostrophe And tmpChr &lt;&gt; d_Underscore Then
                 Do
                     varLen = varLen + 2
                     curPos = curPos + 2
                     tmpChr = strVBA.MidB(expression, curPos, 2)
                 Loop While IsExtAlphaNumeric(tmpChr) And curPos &lt; lenExpr
             Else
-                curPos = strVBA.InStrB(varInitPos + 2, expression, d_Apostrophe)
+                If tmpChr = d_Apostrophe Then
+                    curPos = strVBA.InStrB(varInitPos + 2, expression, d_Apostrophe)
+                Else
+                    curPos = strVBA.InStrB(varInitPos + 2, expression, d_Underscore)
+                End If
                 varLen = curPos - varInitPos + 2
             End If
             If varInitPos &gt; 2 Then
@@ -8626,10 +8666,14 @@ Private Function ReplaceImpliedMult(expression As String) As String
     Dim prevChar As String
     Dim reservedChar As Boolean
     Dim tmpChar As String
+    Dim literalGap() As Long
     
     LookupPos = 1
     tmpStr = expression
     tmpPos = strVBA.InStrB(LookupPos, tmpStr, d_lParenthesis)
+    Do While InLiteralGap(tmpStr, tmpPos) And tmpPos
+        tmpPos = strVBA.InStrB(tmpPos + 2, tmpStr, d_lParenthesis)
+    Loop
     Do While tmpPos
         If tmpPos &gt; 2 Then
             If strVBA.InStrB(1, op_AllItems, strVBA.MidB(tmpStr, tmpPos - 2, 2)) = 0 Then
@@ -8653,9 +8697,15 @@ Private Function ReplaceImpliedMult(expression As String) As String
             End If
             LookupPos = tmpPos + 4
             tmpPos = strVBA.InStrB(LookupPos, tmpStr, d_lParenthesis)
+            Do While InLiteralGap(tmpStr, tmpPos) And tmpPos
+                tmpPos = strVBA.InStrB(tmpPos + 2, tmpStr, d_lParenthesis)
+            Loop
         Else
             LookupPos = tmpPos + 2
             tmpPos = strVBA.InStrB(LookupPos, tmpStr, d_lParenthesis)
+            Do While InLiteralGap(tmpStr, tmpPos) And tmpPos
+                tmpPos = strVBA.InStrB(tmpPos + 2, tmpStr, d_lParenthesis)
+            Loop
         End If
     Loop
     ReplaceImpliedMult = tmpStr

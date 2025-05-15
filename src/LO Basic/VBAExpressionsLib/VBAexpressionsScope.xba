@@ -330,6 +330,24 @@ Public Function CopyScope(ByRef sourceScope As Object) As Object
         Set CopyScope = Me
 	End If
 End Function
+
+Public Function CopyToScope() As Object
+    Dim i As Long
+    Dim tmpValue As String
+    Dim tmpName As String
+    Dim tmpScope As VBAexpressionsScope
+    
+    Set tmpScope = New VBAexpressionsScope
+    For i = 0 To P_EXPR_VARIABLES.aindex
+        tmpName = P_EXPR_VARIABLES.Storage(i).aName
+        tmpValue = P_EXPR_VARIABLES.Storage(i).value
+        If tmpValue &lt;&gt; vbNullString Then
+            tmpScope.LetVarValue(tmpName, tmpValue)
+        End If
+    Next
+    Set CopyToScope = tmpScope
+End Function
+
 Private Sub ExpandCBbuffer(ByRef aBuffer As ClusterBuffer)
 	Dim tmpBuffer() As ClusterItem
 	

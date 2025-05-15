@@ -551,7 +551,6 @@ End Sub
 Private Sub VALIDATEcircleTangents(testName As String)
     On Error GoTo TestFail
     Dim expect As String
-    Dim jaggedArr() As Variant
     
     tTotal=tTotal+1
     Set Evaluator = New VBAexpressions
