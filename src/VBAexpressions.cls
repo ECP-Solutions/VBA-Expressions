@@ -3873,10 +3873,8 @@ Private Function fZeroMBM(ByRef aFunction As String, ByVal A As Double, _
             For i = varLB To UBound(tmpVar)
                 If Not IsConstant(tmpVar(i)) Then
                     If Not IsAssigned(tmpVar(i)) Then
-                        'If Not IsInList(implictVarList, tmpVar(i)) Then
-                            varCounter = varCounter + 1
-                            varIdx = i
-                        'End If
+                        varCounter = varCounter + 1
+                        varIdx = i
                     End If
                 End If
             Next i
@@ -5957,7 +5955,6 @@ Private Function IsSavedPredictorName(ByRef aName As String, ByRef aNamesList() 
 End Function
 
 Private Function IsSymbolInLiteralString(ByRef expression As String, SymbolPos As Long) As Boolean
-    Dim flagCounter As Long
     Dim tmpPos As Long
     Dim literalGap() As Long
     
@@ -10157,13 +10154,6 @@ Private Function Zero(ByRef expression As String, ByRef fName As String) As Stri
                             , CDbl(FormatLiteralString(tmpData(LB + 1), True)) _
                             , CDbl(FormatLiteralString(tmpData(LB + 2), True)), _
                             CBool(FormatLiteralString(tmpData(UB), True)))
-'        Case 5
-'            tmpEval = fZeroMBM( _
-                            FormatLiteralString(tmpData(LB), True) _
-                            , CDbl(FormatLiteralString(tmpData(LB + 1), True)) _
-                            , CDbl(FormatLiteralString(tmpData(LB + 2), True)), _
-                            CBool(FormatLiteralString(tmpData(LB + 3), True)), _
-                            , ArrayFromString(tmpData(UB)))
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
