@@ -335,13 +335,15 @@ Public Function CopyToScope() As Object
     Dim i As Long
     Dim tmpValue As String
     Dim tmpName As String
-    Dim tmpScope As VBAexpressionsScope
+    Dim tmpScope As Object
+    Dim ConstKey As String
     
     Set tmpScope = New VBAexpressionsScope
     For i = 0 To P_EXPR_VARIABLES.aindex
         tmpName = P_EXPR_VARIABLES.Storage(i).aName
         tmpValue = P_EXPR_VARIABLES.Storage(i).value
         If tmpValue &lt;&gt; vbNullString Then
+        	tmpScope.AddVariable(tmpName, ConstKey)
             tmpScope.LetVarValue(tmpName, tmpValue)
         End If
     Next
@@ -355,6 +357,24 @@ Private Sub ExpandCBbuffer(ByRef aBuffer As ClusterBuffer)
 	tmpBuffer = aBuffer.Storage
     ReDim Preserve tmpBuffer(0 To aBuffer.Capacity - 1)
     aBuffer.Storage = tmpBuffer
+End Sub
+
+Public Sub ExtendScope(ByRef sourceScope As Object)
+	Dim i As Long
+	Dim tmpVar() As String
+	Dim varLB As Long
+	Dim cKey As String
+	Dim cValue As String
+	
+	With sourceScope
+		tmpVar() = Split(.CurrentVariables, &quot;; &quot;)
+		varLB = LBound(tmpVar)
+		For i=VarLB To UBound(tmpVar)
+			AddVariable tmpVar(i), cKey
+			cValue = .GetVarValue(tmpVar(i))
+			LetVarValue tmpVar(i), cValue
+		Next i
+	End With
 End Sub
 
 Public Sub FillPredefinedVars()
