@@ -4994,13 +4994,21 @@ Private Function GETS(ByRef expression As String, ByRef fName As String) As Stri
     UB = UBound(tmpData)
     argsCount = UB - LB + 1
     Select Case argsCount
-        Case 2
-            tmpEval = tmpData(UB)
-            P_SCOPE.VarValue(FormatLiteralString(tmpData(LB), True)) = tmpData(UB)
         Case 1
             Dim varName As String
             varName = FormatLiteralString(tmpData(LB), True)
             tmpEval = P_SCOPE.VarValue(varName)
+        Case 2
+            tmpEval = tmpData(UB)
+            P_SCOPE.VarValue(FormatLiteralString(tmpData(LB), True)) = tmpData(UB)
+        Case Is > 2 'List of elements
+            Dim i As Long
+            
+            tmpEval = tmpData(LB + 1)
+            For i = LB + 2 To UB
+                tmpEval = tmpEval & P_SEPARATORCHAR & tmpData(i)
+            Next i
+            P_SCOPE.VarValue(FormatLiteralString(tmpData(LB), True)) = tmpEval
         Case Else
             tmpEval = e_ValueError
               BuildErrMessage errMissingArgsOrTooManyArgs, d_lCurly & fName & d_rCurly
