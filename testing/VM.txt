@@ -259,10 +259,10 @@ Private Function ExecForNode(node As Map, progScope As ScopeStack) As String
         initType = initNode.GetValue("type")
         Select Case initType
             Case "Assign", "Print", "If", "For", "While", "TryCatch", "Switch", "Return", "Break", "Continue", "ExprStmt"
-                ' Already a statement node — execute directly so side-effects happen.
+                ' Already a statement node Â— execute directly so side-effects happen.
                 ExecuteStmtNode initNode, progScope
             Case Else
-                ' Expression node — wrap into ExprStmt for side-effect evaluation.
+                ' Expression node Â— wrap into ExprStmt for side-effect evaluation.
                 ExecuteStmtNode MakeNodeExprStmt(initNode), progScope
         End Select
     End If
@@ -432,7 +432,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             vAssignment tmpResult, progScope.GetValue(node.GetValue("name"))
             GoTo exitfun
         Case "Member"
-            ' Member(base, prop) — evaluate base, then property access
+            ' Member(base, prop) Â— evaluate base, then property access
             Dim baseExpr As Map: Set baseExpr = node.GetValue("base")
             Dim propStr As String: propStr = CStr(node.GetValue("prop"))
             Dim baseEvaluated As Variant
