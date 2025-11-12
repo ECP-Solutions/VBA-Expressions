@@ -68,7 +68,7 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
         Case "Assign"
             Dim left As Map: Set left = node.GetValue("left")
             Dim right As Map: Set right = node.GetValue("right")
-            rval = EvalExprNode(right, progScope)
+            vAssignment rval, EvalExprNode(right, progScope)
             HandleAssignment left, rval, progScope
             ExecuteStmtNode = ""
             Exit Function
@@ -128,6 +128,7 @@ End Function
 Private Sub HandleAssignment(left As Map, rval As Variant, progScope As ScopeStack)
     Dim ltype As String: ltype = left.GetValue("type")
     If ltype = "Variable" Then
+        ' store object/value in scope map (no Set here; vAssignment is used when moving to VB variables)
         progScope.SetValue left.GetValue("name"), rval
     ElseIf ltype = "Index" Then
         ' Evaluate base (should be variable) and index
@@ -149,7 +150,6 @@ Private Sub HandleAssignment(left As Map, rval As Variant, progScope As ScopeSta
         baseVal = EvalExprNode(baseNodeM, progScope)
         If TypeName(baseVal) = "Map" Then
             Dim baseMap As Map: Set baseMap = baseVal
-            ' Use SetValue to allow overwrite
             baseMap.SetValue propName, rval
         ElseIf IsEmpty(baseVal) Then
             ' If base is empty and baseNode is a Variable, create a new Map and assign
@@ -403,6 +403,18 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
     Dim tmpResult As Variant
     
     Select Case tp
+        Case "FuncLiteral", "AnonFunc"
+            ' Create closure (capture env by reference for shared-write closures)
+            Dim cparams As Collection: vAssignment cparams, node.GetValue("params")
+            Dim cbody As Collection: vAssignment cbody, node.GetValue("body")
+            Dim cmap As New Map
+            cmap.Add "type", "Closure"
+            cmap.SetValue "params", cparams
+            cmap.SetValue "body", cbody
+            ' capture current scope reference (shared-write)
+            cmap.SetValue "env", progScope
+            vAssignment tmpResult, cmap
+            GoTo exitfun
         Case "VBEXPR"
             ' Forced VBAexpression node (from @(...)). The node stores the raw VB expression string in "expr".
             Dim rawVB As String: rawVB = node.GetValue("expr")
@@ -486,7 +498,19 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                 vAssignment tmpResult, Empty: GoTo exitfun
             End If
         Case "Call"
-            Dim fname As String: fname = node.GetValue("name")
+            ' Call can be either:
+            '  - named call (node.GetValue("name") is a string)
+            '  - dynamic callee (node contains "callee" map) -> evaluate it to get a function value
+            Dim hasCalleeExpr As Boolean: hasCalleeExpr = False
+            Dim calleeExpr As Map
+            If node.Exists("callee") Then
+                hasCalleeExpr = True
+                Set calleeExpr = node.GetValue("callee")
+            End If
+            Dim fname As String: fname = vbNullString
+            If Not hasCalleeExpr Then
+                fname = node.GetValue("name")
+            End If
             ' builtin length function
             If fname = ".__len__" Then
                 Dim argn As Collection: Set argn = node.GetValue("args")
@@ -506,14 +530,34 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                 evaluated.Add EvalExprNode(argsColl(k), progScope)
             Next k
 
-            ' resolve function by name via gFuncTable
-            If gFuncTable.Exists(fname) Then
-                Dim funcIdx As Long: funcIdx = CLng(gFuncTable.GetValue(fname))
-                vAssignment tmpResult, CallFuncByIndex_AST(funcIdx, evaluated)
+            If Not hasCalleeExpr Then
+                ' named call (existing behavior + fallback to VBAexpressions)
+                If gFuncTable.Exists(fname) Then
+                    Dim funcIdx As Long: funcIdx = CLng(gFuncTable.GetValue(fname))
+                    vAssignment tmpResult, CallFuncByIndex_AST(funcIdx, evaluated)
+                Else
+                    ' named but not internal -> try VBAexpressions function call
+                    vAssignment tmpResult, EvalVBFunctionCall(fname, evaluated, progScope)
+                End If
             Else
-                vAssignment tmpResult, Empty
-                ' Fallback: forward call to VBAexpressions by injecting arguments into VBAexpressions scope
-                vAssignment tmpResult, EvalVBFunctionCall(fname, evaluated, progScope)
+                ' dynamic callee: evaluate callee expression -> it must yield a closure map or call via VB
+                Dim calleeVal As Variant: vAssignment calleeVal, EvalExprNode(calleeExpr, progScope)
+                If TypeName(calleeVal) = "Map" Then
+                    Dim cM As Map: Set cM = calleeVal
+                    If cM.GetValue("type") = "Closure" Then
+                        vAssignment tmpResult, CallClosure(cM, evaluated)
+                    Else
+                        ' not a closure -> fail gracefully
+                        vAssignment tmpResult, Empty
+                    End If
+                Else
+                    ' if calleeVal is string -> call via VBAexpressions
+                    If VarType(calleeVal) = vbString Then
+                        vAssignment tmpResult, EvalVBFunctionCall(CStr(calleeVal), evaluated, progScope)
+                    Else
+                        vAssignment tmpResult, Empty
+                    End If
+                End If
             End If
             GoTo exitfun
 
@@ -770,3 +814,68 @@ ErrHandler:
      err.Clear
      EvalVBFunctionCall = Empty
 End Function
+
+ ' ---------------------
+ ' Closure / function-value support (runtime helpers)
+ ' ---------------------
+
+ ' Create and call closures (closureMap is a Map with keys:
+ '  "type" = "Closure", "params" = Collection, "body" = Collection (stmts), "env" = ScopeStack)
+ Private Function CallClosure(closureMap As Map, evaluatedArgs As Collection, Optional thisVal As Variant) As Variant
+     On Error GoTo ErrHandler
+     Dim env As ScopeStack
+     Set env = closureMap.GetValue("env") ' shared reference (shared-write semantics)
+
+     ' push a new frame for this call
+     env.Push
+     Dim i As Long
+     Dim pa As Variant
+     Dim elm As Variant
+     Dim fc As Boolean
+     
+     vAssignment pa, closureMap.GetValue("params")
+     If IsObject(pa) Then
+        fc = (Not pa Is Nothing)
+     Else
+        fc = Not IsEmpty(pa)
+     End If
+     If fc Then
+         For Each elm In pa
+             i = i + 1
+             If i <= evaluatedArgs.Count Then
+                 env.SetValue CStr(elm), evaluatedArgs(i)
+             Else
+                 env.SetValue CStr(elm), Empty
+             End If
+         Next elm
+     End If
+
+     ' set 'this' if provided
+     If Not IsMissing(thisVal) Then
+         env.SetValue "this", thisVal
+     End If
+
+     ' execute body
+     Dim stmts As Collection: Set stmts = closureMap.GetValue("body")
+     Dim ctrl As String
+     Dim stmtIdx As Long
+     For stmtIdx = 1 To stmts.Count
+         ctrl = ExecuteStmtNode(stmts(stmtIdx), env)
+         If ctrl = "RETURN" Then
+             CallClosure = env.GetValue("__return")
+             env.Pop
+             Exit Function
+         ElseIf ctrl = "ERR" Then
+             err.Raise vbObjectError + 8001, "VM.CallClosure", "Error during closure execution"
+         End If
+     Next stmtIdx
+
+     ' normal return -> Empty
+     env.Pop
+     CallClosure = Empty
+     Exit Function
+ErrHandler:
+     gRuntimeLog.Add "CallClosure error: " & err.Description
+     err.Clear
+     CallClosure = Empty
+ End Function

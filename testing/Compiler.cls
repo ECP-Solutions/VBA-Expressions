@@ -812,124 +812,175 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 Set ParsePrimaryNode = bf
                 Exit Function
             End If
-            ' Handle collapsed array-index form IDENT[NUM] (already collapsed by tokenizer)
-            If InStr(name, "[") > 0 Then
-                ' keep existing array-index behavior handled elsewhere (or convert into Index node)
-                Dim nm As String: nm = left$(name, InStr(name, "[") - 1)
-                Dim idxS As String: idxS = Mid$(name, InStr(name, "[") + 1, Len(name) - InStr(name, "[") - 1)
-                ' create base variable node
-                Dim baseVar As New Map
-                baseVar.Add "type", "Variable"
-                baseVar.SetValue "name", nm
-                ' index node from simple expression string
-                Set idxExpr = ParseExprFromStringToNode(idxS)
-                Set idxNode = New Map
-                idxNode.Add "type", "Index"
-                idxNode.SetValue "base", baseVar
-                idxNode.SetValue "index", idxExpr
-                Set ParsePrimaryNode = idxNode
+
+            ' Expression-level anonymous function literal: fun (p1, p2) { ... }
+            ' This reuses the same 'fun' token used for top-level function declarations but emits
+            ' a FuncLiteral node usable inside expressions.
+            If LCase$(name) = "fun" Then
+                ' advance past 'fun'
                 idx = idx + 1
-                Exit Function
-            End If
-            ' Dotted identifiers: convert into nested Member nodes:
-            ' e.g. "a.b.c" -> Member(Member(Variable("a"), "b"), "c")
-            If InStr(name, ".") > 0 Then
-                Dim parts() As String
-                parts = Split(name, ".")
-                ' create root variable
-                Dim curNode As Map
-                Dim vNode As New Map
-                vNode.Add "type", "Variable"
-                vNode.SetValue "name", parts(0)
-                Set curNode = vNode
-                Dim pi As Long
-                For pi = LBound(parts) + 1 To UBound(parts)
-                    Dim mnode As New Map
-                    mnode.Add "type", "Member"
-                    mnode.SetValue "base", curNode
-                    mnode.SetValue "prop", CStr(parts(pi))
-                    Set curNode = mnode
-                Next pi
-                Set ParsePrimaryNode = curNode
-                idx = idx + 1
-                Exit Function
-            End If
-            ' plain identifier -> Variable node
-            Dim plainVar As Map
-            Set plainVar = MakeNode("Variable")
-            plainVar.SetValue "name", name
-            Set ParsePrimaryNode = plainVar
-            idx = idx + 1
-            Exit Function
-            If idx + 1 < n Then
-                If types(idx + 1) = "PAREN" And vals(idx + 1) = "[" Then
-                    Dim baseName As String: baseName = name
-                    idx = idx + 2 ' after '['
-                    Dim indexTokens As New Collection
-                    Dim depthParen As Long: depthParen = 0
+                ' expect parameter list
+                Dim params As New Collection
+                If idx < n And types(idx) = "PAREN" And vals(idx) = "(" Then
+                    idx = idx + 1
+                    Do While idx < n And Not (types(idx) = "PAREN" And vals(idx) = ")")
+                        If types(idx) = "IDENT" Then
+                            params.Add CStr(vals(idx))
+                            idx = idx + 1
+                            If idx < n And types(idx) = "SEP" And vals(idx) = "," Then idx = idx + 1
+                        ElseIf types(idx) = "SEP" And vals(idx) = "," Then
+                            idx = idx + 1
+                        Else
+                            ' skip unexpected tokens until ')'
+                            idx = idx + 1
+                        End If
+                    Loop
+                    If idx < n And types(idx) = "PAREN" And vals(idx) = ")" Then idx = idx + 1
+                End If
+
+                ' parse body { ... }
+                If idx < n And types(idx) = "PAREN" And vals(idx) = "{" Then
+                    idx = idx + 1
+                    Dim depthBody As Long: depthBody = 0
+                    Dim bodyTok As New Collection
                     Do While idx < n
                         If types(idx) = "PAREN" Then
-                            If vals(idx) = "(" Then
-                                depthParen = depthParen + 1
-                            End If
-                            If vals(idx) = ")" Then
-                                depthParen = depthParen - 1
-                            End If
-                            If vals(idx) = "]" And depthParen = 0 Then
-                                Exit Do
+                            If vals(idx) = "{" Then
+                                depthBody = depthBody + 1
+                            ElseIf vals(idx) = "}" Then
+                                If depthBody = 0 Then
+                                    Exit Do
+                                Else
+                                    depthBody = depthBody - 1
+                                End If
                             End If
                         End If
-                        indexTokens.Add Array(types(idx), vals(idx))
+                        bodyTok.Add Array(types(idx), vals(idx))
                         idx = idx + 1
                     Loop
-                    If idx >= n Or vals(idx) <> "]" Then
-                        err.Raise vbObjectError + 5003, "Compiler.ParsePrimaryNode", "Unclosed array index"
-                    End If
-                    idx = idx + 1  ' After ]
-                    Set idxExpr = ParseExprTokensToNode(indexTokens)
-                    Dim in2 As Map: Set in2 = MakeNode("Index")
-                    Dim vvar As Map: Set vvar = MakeNode("Variable")
-                    vvar.SetValue "name", baseName
-                    in2.SetValue "base", vvar
-                    in2.SetValue "index", idxExpr
-                    Set ParsePrimaryNode = in2
+                    ' consume closing '}'
+                    If idx < n And types(idx) = "PAREN" And vals(idx) = "}" Then idx = idx + 1
+                    Dim bodyStmts As Collection: Set bodyStmts = ParseTokensToAST(bodyTok)
+                    Dim fnode As Map: Set fnode = MakeNode("FuncLiteral")
+                    fnode.SetValue "params", params
+                    fnode.SetValue "body", bodyStmts
+                    Set ParsePrimaryNode = fnode
+                    Exit Function
+                Else
+                    ' no body found -> emit empty function literal
+                    Dim fnode2 As Map: Set fnode2 = MakeNode("FuncLiteral")
+                    fnode2.SetValue "params", params
+                    Dim emptyCol As New Collection
+                    fnode2.SetValue "body", emptyCol
+                    Set ParsePrimaryNode = fnode2
                     Exit Function
                 End If
             End If
-            If idx + 1 < n Then
-                If types(idx + 1) = "PAREN" And vals(idx + 1) = "(" Then
-                    idx = idx + 2 ' after '('
-                    Dim argNodes As New Collection
-                    Dim argTokDepthParen As Long, argTokDepthBr As Long, argTokDepthB As Long
+
+            ' .length special-case on collapsed IDENT token (preserve behavior, but emit Call with callee)
+            If right$(name, 7) = ".length" Then
+                Dim arrName As String: arrName = left$(name, Len(name) - 7)
+                Dim varN As Map: Set varN = MakeNode("Variable")
+                varN.SetValue "name", arrName
+                Dim lenCall As Map: Set lenCall = MakeNode("Call")
+                lenCall.SetValue "callee", varN
+                Dim al As New Collection
+                al.Add varN
+                lenCall.SetValue "args", al
+                idx = idx + 1
+                Set ParsePrimaryNode = lenCall
+                Exit Function
+            End If
+
+            ' collapsed index literal, e.g. name[3] in single IDENT token => produce Index node
+            If InStr(name, "[") > 0 Then
+                Dim base As String: base = left$(name, InStr(name, "[") - 1)
+                Dim idxStr As String: idxStr = Mid$(name, InStr(name, "[") + 1, Len(name) - InStr(name, "[") - 1)
+                Dim idxNodeFromStr As Map: Set idxNodeFromStr = ParseExprFromStringToNode(idxStr)
+                Dim inNode As Map: Set inNode = MakeNode("Index")
+                Dim vn As Map: Set vn = MakeNode("Variable")
+                vn.SetValue "name", base
+                inNode.SetValue "base", vn
+                inNode.SetValue "index", idxNodeFromStr
+                idx = idx + 1
+                Set ParsePrimaryNode = inNode
+                Exit Function
+            End If
+
+            ' create initial variable node for an IDENT and then apply postfix operators:
+            Dim currentNode As Map: Set currentNode = MakeNode("Variable")
+            currentNode.SetValue "name", name
+            idx = idx + 1
+
+            ' Postfix loop: handle .prop, [...], func calls (...) as postfixes chaining onto currentNode
+            Do While idx < n
+                ' member access a.b
+                If types(idx) = "OP" And vals(idx) = "." Then
+                    idx = idx + 1
+                    If idx < n And types(idx) = "IDENT" Then
+                        Dim mem As Map: Set mem = MakeNode("Member")
+                        mem.SetValue "base", currentNode
+                        mem.SetValue "prop", CStr(vals(idx))
+                        Set currentNode = mem
+                        idx = idx + 1
+                        ' continue loop
+                    Else
+                        ' invalid member access; stop postfixing
+                        Exit Do
+                    End If
+                ' index access a[expr]
+                ElseIf types(idx) = "PAREN" And vals(idx) = "[" Then
+                    idx = idx + 1
+                    Dim idxTok As New Collection
+                    Dim depthIdx As Long: depthIdx = 0
                     Do While idx < n
+                        If types(idx) = "PAREN" Then
+                            If vals(idx) = "[" Then
+                                depthIdx = depthIdx + 1
+                            ElseIf vals(idx) = "]" Then
+                                If depthIdx = 0 Then
+                                    Exit Do
+                                Else
+                                    depthIdx = depthIdx - 1
+                                End If
+                            End If
+                        End If
+                        idxTok.Add Array(types(idx), vals(idx))
+                        idx = idx + 1
+                    Loop
+                    Dim idxExprNode As Map: Set idxExprNode = ParseExprTokensToNode(idxTok)
+                    If idx < n And types(idx) = "PAREN" And vals(idx) = "]" Then idx = idx + 1
+                    Dim indexNode As Map: Set indexNode = MakeNode("Index")
+                    indexNode.SetValue "base", currentNode
+                    indexNode.SetValue "index", idxExprNode
+                    Set currentNode = indexNode
+                ' function / method call: ( arglist )
+                ElseIf types(idx) = "PAREN" And vals(idx) = "(" Then
+                    ' parse args with nested depth counters (borrowed pattern from previous call parsing logic)
+                    idx = idx + 1
+                    Dim argNodes As New Collection
+                    Do
                         Dim argTok As New Collection
-                        argTokDepthParen = 0: argTokDepthBr = 0: argTokDepthB = 0
+                        Dim argTokDepthParen As Long: argTokDepthParen = 0
+                        Dim argTokDepthBr As Long: argTokDepthBr = 0
+                        Dim argTokDepthB As Long: argTokDepthB = 0
                         Do While idx < n
                             If types(idx) = "PAREN" Then
-                                Select Case vals(idx)
+                                Select Case CStr(vals(idx))
                                     Case "("
                                         argTokDepthParen = argTokDepthParen + 1
                                     Case ")"
-                                        If argTokDepthParen > 0 Then
-                                            argTokDepthParen = argTokDepthParen - 1
-                                        Else
-                                            Exit Do
-                                        End If
+                                        If argTokDepthParen = 0 Then Exit Do Else argTokDepthParen = argTokDepthParen - 1
                                     Case "["
                                         argTokDepthBr = argTokDepthBr + 1
                                     Case "]"
-                                        If argTokDepthBr > 0 Then argTokDepthBr = argTokDepthBr - 1
+                                        If argTokDepthBr = 0 Then Exit Do Else argTokDepthBr = argTokDepthBr - 1
                                     Case "{"
                                         argTokDepthB = argTokDepthB + 1
                                     Case "}"
-                                        If argTokDepthB > 0 Then argTokDepthB = argTokDepthB - 1
+                                        If argTokDepthB = 0 Then Exit Do Else argTokDepthB = argTokDepthB - 1
                                 End Select
-                            End If
-                            If argTokDepthParen = 0 And argTokDepthBr = 0 And argTokDepthB = 0 _
-                               And types(idx) = "SEP" And (vals(idx) = "," Or vals(idx) = ";") Then
-                                Exit Do
-                            End If
-                            If types(idx) = "PAREN" And vals(idx) = ")" And argTokDepthParen = 0 And argTokDepthBr = 0 And argTokDepthB = 0 Then
+                            ElseIf types(idx) = "SEP" And vals(idx) = "," And argTokDepthParen = 0 And argTokDepthBr = 0 And argTokDepthB = 0 Then
                                 Exit Do
                             End If
                             argTok.Add Array(types(idx), vals(idx))
@@ -943,12 +994,14 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                             argNodes.Add litEmpty
                         End If
                         If idx < n Then
-                            If types(idx) = "SEP" And (vals(idx) = "," Or vals(idx) = ";") Then
+                            If types(idx) = "SEP" And vals(idx) = "," Then
                                 idx = idx + 1
+                                ' continue parsing next arg
                             ElseIf types(idx) = "PAREN" And vals(idx) = ")" Then
                                 idx = idx + 1
                                 Exit Do
                             Else
+                                ' unexpected token -> stop args parsing
                                 Exit Do
                             End If
                         Else
@@ -956,16 +1009,14 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         End If
                     Loop
                     Dim callNode As Map: Set callNode = MakeNode("Call")
-                    callNode.SetValue "name", name
+                    callNode.SetValue "callee", currentNode
                     callNode.SetValue "args", argNodes
-                    Set ParsePrimaryNode = callNode
-                    Exit Function
+                    Set currentNode = callNode
+                Else
+                    Exit Do
                 End If
-            End If
-            Dim varNode As Map: Set varNode = MakeNode("Variable")
-            varNode.SetValue "name", name
-            idx = idx + 1
-            Set ParsePrimaryNode = varNode
+            Loop
+            Set ParsePrimaryNode = currentNode
             Exit Function
         Case "PAREN"
             If v = "(" Then
@@ -2061,4 +2112,6 @@ NormNext:
 ' ---------------------
 ' End Compiler class
 ' ---------------------
+
+
 
