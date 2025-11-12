@@ -12,7 +12,7 @@ Private Assert As Object
 Private Fakes As Object
 
 Public Sub ShowEvalForm(control As IRibbonControl)
-    'EvalForm_frm.Show False
+    EvalForm_frm.Show False
 End Sub
 
 '@ModuleInitialize
@@ -1051,6 +1051,266 @@ Private Sub RetrieveArrayElement()
                         "SUM(C[0;0];C[1;1])" _
                         , "C = {{-1;13};{6;15}}")
     expected = "14"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Array elements retrieval")
+Private Sub VarOverloading()
+    On Error GoTo TestFail
+    
+    Set Evaluator = New VBAexpressions
+    With Evaluator
+        .Create "GET('A';{{2;1;3};{3;-2;-1}}); GET('B';{{2;3};{1;-5};{-2;4}})": .Eval
+        .Create "GET('C';MMULT(A;B))", False: .Eval
+        .Create "ROUND(SUM(SIN(C[0;0]);SIN(C[1;1]));4)", False: .Eval
+        actual = .result
+    End With
+    expected = "-0.1912"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Linear Algebra/Stats Functions")
+Private Sub testBetaInverse()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "ROUND(IBETA((2-1)/(3-1);8;10);4)" _
+                        )
+    expected = "0.6855"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Linear Algebra/Stats Functions")
+Private Sub testBetaDist()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "ROUND(BETA.DIST(2;8;10;True;1;3);4)" _
+                        )
+    expected = "0.6855"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Linear Algebra/Stats Functions")
+Private Sub testTINV()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "ROUND(TINV(0.75;2;1);8)" _
+                        )
+    expected = "0.81649658"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Finantial Functions")
+Private Sub testIRR()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "FORMAT(IRR({{-70000;12000;15000}};true);'Percent')" _
+                        )
+    expected = "'-44.35%'"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testTwoPointsDistance()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "ROUND(DISTANCE({{3.1441;0}};{{4.45415;3.1441}});4)" _
+                        )
+    expected = "3.4061"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testLinesIntersection()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(LINESINTERSECT({{12;0};{0;5}};{{0;1.31004};{0.79693;3.22267}});2)" _
+                        )
+    expected = "{{1.31;4.45}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testParallelLine()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(PARALLEL({{12;0};{0;5}};{{3.1441;0}});2)" _
+                        )
+    expected = "{{3.14;0};{0;1.31}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testPerpendicularLine()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(PERPENDICULAR({{12;0};{0;5}};{{3.1441;0}});2)" _
+                        )
+    expected = "{{3.14;0};{4.45;3.14}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testBisectorLine()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(BISECTOR({{-4;-2}};{{-2;6}});4)" _
+                        )
+    expected = "{{-3;2};{-2;1.75}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testAngleBisectorLine()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(BISECTOR({{-2.4387;6.8161}};{{-4;3}};{{-0.4613;0.8839}});4)" _
+                        )
+    expected = "{{-4;3};{-3.0513;3.3162}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testTriangleIncenter()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(INCENTER({{0;0}};{{-4;-2}};{{-2;6}});4)" _
+                        )
+    expected = "{{-1.7982;0.7448}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testTriangleIncircle()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(INCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4)" _
+                        )
+    expected = "{{-1.7982;0.7448};{1.4704;1.4704}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testCircumcircle()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(CIRCUMCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4)" _
+                        )
+    expected = "{{-3.5714;2.1429};{4.165;4.165}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testTwoCircleTangents()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{2;5}});4)" _
+                        )
+    expected = "{{-2.4387;6.8161};{2;5}};{{2;5};{-0.4613;0.8839}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Analytical Geometry")
+Private Sub testOneCircleTangent()
+    On Error GoTo TestFail
+
+    actual = GetResult( _
+                        "MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{0;4}});4)" _
+                        )
+    expected = "{{0;4};{1;0}}"
     Assert.AreEqual expected, actual
 TestExit:
     Exit Sub

@@ -46,6 +46,86 @@ Welcome to VBA Expressions, a powerful library designed to extend the capabiliti
 * __Floating point notation input support__: `-5E-5`, `(1.434E3+1000)*2/3.235E-5` are valid inputs.
 * __Free of external VBA dependencies__: does not use dll.
 
+## Let's prove it!
+## ![Let's prove it!](/docs/assets/img/GeoProblem.png)
+The versatility of VBA Expressions allows its users to apply their creativity to solve a wide variety of geometrical problems in anautomated way. To demonstrate this we will solve the problem shown in the figure shown above. We are asked to calculate the area of the largest square inscribed in a right triangle of legs _a_ and _b_. The square corners confguration is: one corner intersecting the leg _a_, another with intersection on leg _b_ and the others corners intersecting the hypotenuse _c_.  First, we define the point _O_ as the square's intersection in leg _b_. The right angle is assumed to be located at the origin of Cartesian plane. In the same way we define _P_ as one intersection of the square with the hypotenuse and _Q_ as the intersection with the leg _a_. Since the figure we are looking for is a square, all sides have a dimension _s_, hence the problem is reduced to ensuring that the magnitudes _OP_ and _OQ_ have the same value. The code to solve the problem is shown below
+
+```vb
+Public Function LargestSquareInRATriangle(A As Double, B As Double) As String
+    Dim contFunct As String
+    Dim evalHelper As VBAexpressions
+    Dim xVal As String
+    Dim Area As String
+
+    contFunct = "FZERO('DISTANCE(LINESINTERSECT(PERPENDICULAR(" _
+                                                    & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                & ";{{" & B & ";0};{0;" & A & "}})" _
+                        & ";{{x;0}})" & "-" _
+                & "DISTANCE(LINESINTERSECT(PERPENDICULAR(PERPENDICULAR(" _
+                                                        & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                            & ";{{x;0}})" _
+                                & ";{{0;0};{0;" & A & "}})" _
+                        & ";{{x;0}})'" _
+                    & ";0;" & B & ")"
+    Set evalHelper = New VBAexpressions
+    With evalHelper
+        .Create contFunct
+        .Eval
+        If .ErrorType = errNone Then
+            xVal = Mid(.Result, 2, Len(.Result) - 2)
+            .Create "(DISTANCE(LINESINTERSECT(PERPENDICULAR(" _
+                                                    & "{{" & B & ";0};{0;" & A & "}};{{x;0}})" _
+                                & ";{{" & B & ";0};{0;" & A & "}})" _
+                        & ";{{x;0}}))^2", False
+            .Eval xVal
+            If .ErrorType = errNone Then
+                Area = "Area = " & .Result
+                LargestSquareInRATriangle = xVal & "; " & Area
+            End If
+        End If
+    End With
+End Function
+```
+Since the magnitude of the segments _OP_ and _OQ_ must be the same, the `FZERO` function can be used to determine the coordinate _O = (x, 0)_ by iteratively computing the value of _x_ that satisfies the continuous equality _OP−OQ = 0_. After execute the call `LargestSquareInRATriangle(5,12)`, the result returned is
+
+```vb
+x = 3.14410480351349; Area = 11.6016094276853
+```
+Another problem that can be solved is shown in the figure below.
+
+![Let's prove it!](/docs/assets/img/ConceptExample.png)
+
+The code solution for the above problem is 
+
+```vb
+Public Function IncribedCSCcentersDistance(squareSide As Double) As String
+    Dim evalHelper As VBAexpressions
+    
+    Set evalHelper = New VBAexpressions
+    With evalHelper
+        .Create "GET('s';" & CStr(squareSide) & ")": .Eval
+        .Create "GET('upper.triangle';{{s;0}};{{s;s}};{{0;s}})", False: .Eval
+        .Create "GET('lower.triangle';{{0;s}};{{0;-s}};{{s;0}})", False: .Eval
+        .Create "GET('ut.inctr';INCENTER(upper.triangle))", False: .Eval
+        .Create "GET('lt.inctr';INCENTER(lower.triangle))", False: .Eval
+        .Create "GET('inc.dist';ROUND(DISTANCE(ut.inctr;lt.inctr);4))", False: .Eval
+        .Create "MROUND(INCIRCLE(upper.triangle);4)", False: .Eval
+        Debug.Print "Inscribed upper circle: " & .result
+        .Create "MROUND(INCIRCLE(lower.triangle);4)", False: .Eval
+        Debug.Print "Inscribed lower circle: " & .result
+        IncribedCSCcentersDistance = .VarValue("inc.dist")
+    End With
+End Function
+```
+After executing the code, in the console is also printed the inscribed circle center point coordinates and radius magnitudes.
+
+```vb
+Inscribed upper circle: {{8.4853;8.4853};{3.5147;3.5147}}
+Inscribed lower circle: {{4.9706;0};{4.9706;4.9706}}
+```
+ 
+These UDF's are masterpieces demonstrating the power and versatility offered by the latest versions of VBA Expressions!
+
 ## Supported expressions
 
 The evaluation approach used is similar to the one we humans use: divide the function into sub-expressions, create a symbolic string to build an expression evaluation flow, split the sub-expressions into chunks of operations (tokens) by tokenization, evaluate all the tokens. 
@@ -277,12 +357,22 @@ End Sub
 '''
 ''' A={{2;4};{-5;1},{3;-8}};b={{10;-9.5;12}}
 ''' 			 --------------------------------------------------------------------
-''' 		        | Solving overdetermined system of equations using least squares and |
+''' 		    | Solving overdetermined system of equations using least squares and |
 ''' 			| the QR decomposition                                               |
 ''' 			|                                                                    |
 ''' 			| MROUND(LSQRSOLVE(A;b);4) : {{2.6576;-0.1196}}                      |
 ''' 			 --------------------------------------------------------------------
 '''
+'***********************************GEOMETRICAL FUNCTIONS*******************************************************************************
+''' DISTANCE({{3.1441;0}};{{4.45415;3.1441}}) = 3.40611153847022
+''' LINESINTERSECT({{3.1441;0};{0;1.31004}};{{0;3};{-3;3}}) = {{-4.05590916002565;3}}
+''' PARALLEL({{12;0};{0;5}};{{3.1441;0}}) = {{3.1441;0};{0;1.31004166666667}}
+''' PERPENDICULAR({{12;0};{0;5}};{{0;0}}) = {{0;0};{1.77514792899408;4.2603550295858}}
+''' MROUND(BISECTOR({{-4;-2}};{{-2;6}});4) = {{-3;2};{-2;1.75}}
+''' MROUND(INCENTER({{0;0}};{{-4;-2}};{{-2;6}});4) = {{-1.7982;0.7448}}
+''' MROUND(INCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4) = {{-1.7982;0.7448};{1.4704;1.4704}}
+''' MROUND(CIRCUMCIRCLE({{0;0}};{{-4;-2}};{{-2;6}});4) = {{-3.5714;2.1429};{4.165;4.165}}
+''' MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{2;5}});4) = {{-2.4387;6.8161};{2;5}};{{2;5};{-0.4613;0.8839}}
 '***********************************STATISTICAL FUNCTIONS*******************************************************************************
 ''' ROUND(NORM(0.05);8) = 0.96012239
 ''' ROUND(CHISQ(4;15);8) = 0.99773734
@@ -377,7 +467,7 @@ For issues, feature requests, or questions, please use the issue tracker on GitH
 
 ## Licence
 
-Copyright: &copy; 2022-2024  [W. García](https://github.com/ws-garcia/).
+Copyright: &copy; 2022-2025  [W. García](https://github.com/ws-garcia/).
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
