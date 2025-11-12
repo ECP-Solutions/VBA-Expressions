@@ -25,7 +25,7 @@ Option Base 0
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ' VARIABLES:
 Private e As Double
-Private PI As Double
+Private pi As Double
 Private P_CONSTANTS As ClusterBuffer
 Private P_EXPR_VARIABLES As ClusterBuffer
 Private arrHelper As VBAexpressions
@@ -38,11 +38,7 @@ Private Type ClusterItem
     name As String
     value As String
     value2 As Variant 'Array representation for the value
-    js_objProperties As VBAexpressionsScope 'For JavaScript like objects support
     IsArray As Boolean
-    IsFunction As Boolean 'True for evaluable script functions or ASFs.
-    script As Variant 'Evaluable ASF function
-    IsJSobject As Boolean 'Sets to True for JavaScript object allocation
     Assigned As Boolean
 End Type
 Private Type ClusterBuffer
@@ -165,6 +161,9 @@ Public Property Get VarValue(aVarKey As Variant) As String
 End Property
 
 Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
+    Dim IsAnArray As Boolean
+    
+    IsAnArray = (aVarValue Like "{{*}}")
     If Not IsNumeric(aVarKey) Then
         Dim ValueIdx As Long
         Dim ConstKey As String
@@ -173,6 +172,10 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
         If ValueIdx > -1 Then
             P_EXPR_VARIABLES.Storage(ValueIdx).value = aVarValue
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
+            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
+            If IsAnArray Then
+                Me.VarValue2(ValueIdx, True) = aVarValue
+            End If
         Else
             AddVariable CStr(aVarKey), ConstKey
             Me.VarValue(aVarKey) = aVarValue
@@ -182,6 +185,10 @@ Public Property Let VarValue(aVarKey As Variant, aVarValue As String)
         If ValueIdx > -1 And ValueIdx <= P_EXPR_VARIABLES.index Then
             P_EXPR_VARIABLES.Storage(ValueIdx).value = aVarValue
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
+            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = IsAnArray
+            If IsAnArray Then
+                Me.VarValue2(ValueIdx, True) = aVarValue
+            End If
         End If
     End If
 End Property
@@ -242,7 +249,7 @@ Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarV
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             If treatAsArray Then
                 P_EXPR_VARIABLES.Storage(ValueIdx). _
-                                    value2 = arrHelper.ArrayFromString(CStr(aVarValue))
+                                    value2 = arrHelper.ArrayFromString2(CStr(aVarValue))
             End If
         Else
             AddVariable CStr(aVarKey), ConstKey
@@ -256,7 +263,7 @@ Public Property Let VarValue2(aVarKey As Variant, treatAsArray As Boolean, aVarV
             P_EXPR_VARIABLES.Storage(ValueIdx).Assigned = True
             If treatAsArray Then
                 P_EXPR_VARIABLES.Storage(ValueIdx). _
-                                    value2 = arrHelper.ArrayFromString(CStr(aVarValue))
+                                    value2 = arrHelper.ArrayFromString2(CStr(aVarValue))
             End If
         End If
     End If
@@ -291,26 +298,6 @@ Public Sub AddVariable(ByRef variable As String, ByRef aKey As String)
     End If
 End Sub
 
-''' <summary>
-''' Assigns the array for the given variable
-''' </summary>
-Public Sub AllocateArray(aVarKey As Variant, aArray As Variant)
-    If IsArray(aArray) Then
-        If Not IsNumeric(aVarKey) Then
-            Dim ValueIdx As Long
-        
-            ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
-            If ValueIdx > -1 Then
-                P_EXPR_VARIABLES.Storage(ValueIdx).value2 = aArray
-                P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
-            End If
-        Else
-            P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2 = aArray
-            P_EXPR_VARIABLES.Storage(ValueIdx).IsArray = True
-        End If
-    End If
-End Sub
-
 Private Sub AppendToCBbuffer(ByRef aBuffer As ClusterBuffer, ByRef ItemName As String, Optional ByRef ItemValue As String = vbNullString)
     aBuffer.index = aBuffer.index + 1
     On Error GoTo BufferAppend_errHandler
@@ -340,13 +327,10 @@ Public Sub ConstantsInit()
     InitCBbuffer P_CONSTANTS
     '@--------------------------------------------------------------------
     ' Save predefined constants
-    AppendToCBbuffer P_CONSTANTS, "pi", CStr(PI)
+    AppendToCBbuffer P_CONSTANTS, "pi", CStr(pi)
     AppendToCBbuffer P_CONSTANTS, "e", CStr(e)
 End Sub
 
-''' <summary>
-'''    Copies the values of the variables in the current scope if they exist in the source scope.
-''' </summary>
 Public Function CopyScope(ByRef sourceScope As VBAexpressionsScope) As VBAexpressionsScope
     Dim i As Long
     Dim tmpValue As String
@@ -364,22 +348,21 @@ Public Function CopyScope(ByRef sourceScope As VBAexpressionsScope) As VBAexpres
     Set CopyScope = Me
 End Function
 
-''' <summary>
-'''    Returns a shadow copy of the source scope.
-''' </summary>
-Public Function Clone(ByRef sourceScope As VBAexpressionsScope) As VBAexpressionsScope
+Public Function CopyToScope() As VBAexpressionsScope
     Dim i As Long
     Dim tmpValue As String
-    Dim tmpVarName As String
+    Dim tmpName As String
+    Dim tmpScope As VBAexpressionsScope
     
-    If Not sourceScope Is Nothing Then
-        VariablesInit
-        For i = 1 To sourceScope.VariablesCount
-            tmpVarName = sourceScope.VarName(i - 1)
-            VarValue(tmpVarName) = sourceScope.VarValue(i - 1)
-        Next
-    End If
-    Set Clone = Me
+    Set tmpScope = New VBAexpressionsScope
+    For i = 0 To P_EXPR_VARIABLES.index
+        tmpName = P_EXPR_VARIABLES.Storage(i).name
+        tmpValue = P_EXPR_VARIABLES.Storage(i).value
+        If tmpValue <> vbNullString Then
+            tmpScope.VarValue(tmpName) = tmpValue
+        End If
+    Next
+    Set CopyToScope = tmpScope
 End Function
 
 Private Sub ExpandCBbuffer(ByRef aBuffer As ClusterBuffer)
@@ -399,25 +382,6 @@ Public Sub FillPredefinedVars()
         End If
     Next i
 End Sub
-''' <summary>
-''' Returns the assigned array for the given variable if any
-''' </summary>
-Public Function GetAllocatedArray(aVarKey As Variant) As Variant
-    If Not IsNumeric(aVarKey) Then
-        Dim ValueIdx As Long
-    
-        ValueIdx = GetCBItemIdx(P_EXPR_VARIABLES, CStr(aVarKey))
-        If ValueIdx > -1 Then
-            If P_EXPR_VARIABLES.Storage(ValueIdx).IsArray Then
-                GetAllocatedArray = P_EXPR_VARIABLES.Storage(ValueIdx).value2
-            End If
-        End If
-    Else
-        If P_EXPR_VARIABLES.Storage(CLng(aVarKey)).IsArray Then
-            GetAllocatedArray = P_EXPR_VARIABLES.Storage(CLng(aVarKey)).value2
-        End If
-    End If
-End Function
 Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As String) As Long
     Dim i As Long
     Dim tmpResult As Boolean
@@ -446,13 +410,7 @@ Private Function GetCBItemIdx(ByRef cbBuffer As ClusterBuffer, ByRef ItemName As
         GetCBItemIdx = -1
     End If
 End Function
-''' <summary>
-'''     Returns the index for the given variable in current scope.
-'''     The method returns -1 for missing variables
-''' </summary>
-Public Function GetVariableIndex(aVarName As String) As Long
-    GetVariableIndex = GetCBItemIdx(P_EXPR_VARIABLES, aVarName)
-End Function
+
 Private Sub InitCBbuffer(ByRef aBuffer As ClusterBuffer)
     aBuffer.Capacity = 128
     ReDim aBuffer.Storage(0 To aBuffer.Capacity - 1)
@@ -463,8 +421,8 @@ Public Function IsConstant(aVarName As String) As Boolean
     IsConstant = GetCBItemIdx(P_CONSTANTS, aVarName) > -1
 End Function
 
-Private Function IsPI(ByRef VarName As String) As Boolean
-    IsPI = VarName Like "[Pp][Ii]"
+Private Function IsPI(ByRef varName As String) As Boolean
+    IsPI = varName Like "[Pp][Ii]"
 End Function
 
 Public Sub VariablesInit()
@@ -482,15 +440,6 @@ Public Function VarIndex(ByRef ItemName As String, _
         VarIndex = GetCBItemIdx(P_CONSTANTS, ItemName)
     End If
 End Function
-
-''' <summary>
-''' Returns the variable name at given index.
-''' </summary>
-Public Function VarName(aIndex As Long) As String
-    If aIndex >= 0 And aIndex <= P_EXPR_VARIABLES.index Then
-        VarName = P_EXPR_VARIABLES.Storage(aIndex).name
-    End If
-End Function
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 '#
 '///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +447,7 @@ End Function
 ''' Initializes this instance.
 ''' </summary>
 Private Sub Class_Initialize()
-    PI = 4 * Atn(1)
+    pi = 4 * Atn(1)
     e = Exp(1)
     ConstantsInit
     VariablesInit
