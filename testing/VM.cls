@@ -350,7 +350,11 @@ Private Function ExecTryCatchNode(node As Map, progScope As ScopeStack) As Strin
     Dim i As Long
     For i = 1 To tryStmts.Count
         Dim ctrl As String: ctrl = ExecuteStmtNode(tryStmts(i), progScope)
-        If ctrl = "RETURN" Or ctrl = "ERR" Then ExecTryCatchNode = ctrl: Exit Function
+        If ctrl = "RETURN" Or ctrl = "ERR" Then
+            ExecTryCatchNode = ctrl
+            If ctrl = "ERR" Then GoTo TryErr
+            Exit Function
+        End If
     Next i
     ExecTryCatchNode = ""
     Exit Function
