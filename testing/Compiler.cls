@@ -829,7 +829,8 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 ' advance past 'fun'
                 idx = idx + 1
                 ' expect parameter list
-                Dim params As New Collection
+                Dim params As Collection
+                Set params = New Collection
                 If idx < n And types(idx) = "PAREN" And vals(idx) = "(" Then
                     idx = idx + 1
                     Do While idx < n And Not (types(idx) = "PAREN" And vals(idx) = ")")
@@ -851,7 +852,8 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 If idx < n And types(idx) = "PAREN" And vals(idx) = "{" Then
                     idx = idx + 1
                     Dim depthBody As Long: depthBody = 0
-                    Dim bodyTok As New Collection
+                    Dim bodyTok As Collection
+                    Set bodyTok = New Collection
                     Do While idx < n
                         If types(idx) = "PAREN" Then
                             If vals(idx) = "{" Then
@@ -873,7 +875,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                     Dim fnode As Map: Set fnode = MakeNode("FuncLiteral")
                     fnode.SetValue "params", params
                     fnode.SetValue "body", bodyStmts
-                    Set ParsePrimaryNode = fnode
+                    Set ParsePrimaryNode = fnode.Clone
                     Exit Function
                 Else
                     ' no body found -> emit empty function literal
@@ -912,7 +914,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 inNode.SetValue "base", vn
                 inNode.SetValue "index", idxNodeFromStr
                 idx = idx + 1
-                Set ParsePrimaryNode = inNode
+                Set ParsePrimaryNode = inNode.Clone
                 Exit Function
             End If
 
@@ -930,7 +932,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         Dim mem As Map: Set mem = MakeNode("Member")
                         mem.SetValue "base", currentNode
                         mem.SetValue "prop", CStr(vals(idx))
-                        Set currentNode = mem
+                        Set currentNode = mem.Clone
                         idx = idx + 1
                         ' continue loop
                     Else
@@ -940,7 +942,8 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 ' index access a[expr]
                 ElseIf types(idx) = "PAREN" And vals(idx) = "[" Then
                     idx = idx + 1
-                    Dim idxTok As New Collection
+                    Dim idxTok As Collection
+                    Set idxTok = New Collection
                     Dim depthIdx As Long: depthIdx = 0
                     Do While idx < n
                         If types(idx) = "PAREN" Then
@@ -962,17 +965,22 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                     Dim indexNode As Map: Set indexNode = MakeNode("Index")
                     indexNode.SetValue "base", currentNode
                     indexNode.SetValue "index", idxExprNode
-                    Set currentNode = indexNode
+                    Set currentNode = indexNode.Clone
                 ' function / method call: ( arglist )
                 ElseIf types(idx) = "PAREN" And vals(idx) = "(" Then
                     ' parse args with nested depth counters (borrowed pattern from previous call parsing logic)
                     idx = idx + 1
-                    Dim argNodes As New Collection
+                    Dim argNodes As Collection
+                    Dim argTok As Collection
+                    Dim argTokDepthParen As Long
+                    Dim argTokDepthBr As Long
+                    Dim argTokDepthB As Long
+                    Set argNodes = New Collection
                     Do
-                        Dim argTok As New Collection
-                        Dim argTokDepthParen As Long: argTokDepthParen = 0
-                        Dim argTokDepthBr As Long: argTokDepthBr = 0
-                        Dim argTokDepthB As Long: argTokDepthB = 0
+                        Set argTok = New Collection
+                        argTokDepthParen = 0
+                        argTokDepthBr = 0
+                        argTokDepthB = 0
                         Do While idx < n
                             If types(idx) = "PAREN" Then
                                 Select Case CStr(vals(idx))
@@ -1000,7 +1008,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         Else
                             Dim litEmpty As Map: Set litEmpty = MakeNode("Literal")
                             litEmpty.SetValue "value", Empty
-                            argNodes.Add litEmpty
+                            argNodes.Add litEmpty.Clone
                         End If
                         If idx < n Then
                             If types(idx) = "SEP" And vals(idx) = "," Then
@@ -1020,25 +1028,27 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                     Dim callNode As Map: Set callNode = MakeNode("Call")
                     callNode.SetValue "callee", currentNode
                     callNode.SetValue "args", argNodes
-                    Set currentNode = callNode
+                    Set currentNode = callNode.Clone
                 Else
                     Exit Do
                 End If
             Loop
-            Set ParsePrimaryNode = currentNode
+            Set ParsePrimaryNode = currentNode.Clone
             Exit Function
         Case "PAREN"
             If v = "(" Then
                 idx = idx + 1
                 Dim innerNode As Map: Set innerNode = ParseLogicalOrNode(types, vals, n, idx)
                 If idx < n And types(idx) = "PAREN" And vals(idx) = ")" Then idx = idx + 1
-                Set ParsePrimaryNode = innerNode
+                Set ParsePrimaryNode = innerNode.Clone
                 Exit Function
             ElseIf v = "[" Then
                 idx = idx + 1
-                Dim arrList As New Collection
+                Dim arrList As Collection
+                Dim elemTok As Collection
+                Set arrList = New Collection
                 Do While idx < n And Not (types(idx) = "PAREN" And vals(idx) = "]")
-                    Dim elemTok As New Collection
+                    Set elemTok = New Collection
                     ' Collect element tokens until a comma (element separator) or closing bracket
                     Do While idx < n And Not ((types(idx) = "SEP" And vals(idx) = ",") Or (types(idx) = "PAREN" And vals(idx) = "]"))
                         elemTok.Add Array(types(idx), vals(idx))
@@ -1050,15 +1060,17 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 If idx < n And types(idx) = "PAREN" And vals(idx) = "]" Then idx = idx + 1
                 Dim arrNode As Map: Set arrNode = MakeNode("Array")
                 arrNode.SetValue "items", arrList
-                Set ParsePrimaryNode = arrNode
+                Set ParsePrimaryNode = arrNode.Clone
                 Exit Function
             ElseIf v = "{" Then
                 ' object literal: { key: value, key2: value2 }
                 idx = idx + 1
-                Dim objItems As New Collection
+                Dim objItems As Collection
+                Dim pair As Collection
+                Set objItems = New Collection
+                ' key can be IDENT or STRING
+                Dim keyTok As String
                 Do While idx < n And Not (types(idx) = "PAREN" And vals(idx) = "}")
-                    ' key can be IDENT or STRING
-                    Dim keyTok As String
                     If types(idx) = "IDENT" Or types(idx) = "STRING" Then
                         keyTok = CStr(vals(idx))
                         idx = idx + 1
@@ -1075,9 +1087,9 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                     Dim valNode As Map
                     Set valNode = ParseTernaryNode(types, vals, n, idx)
                     ' store pair (key, node)
-                    Dim pair As New Collection
+                    Set pair = New Collection
                     pair.Add keyTok
-                    pair.Add valNode
+                    pair.Add valNode.Clone
                     objItems.Add pair
                     ' optional comma
                     If idx < n And types(idx) = "SEP" And vals(idx) = "," Then idx = idx + 1
@@ -1085,7 +1097,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 If idx < n And types(idx) = "PAREN" And vals(idx) = "}" Then idx = idx + 1
                 Dim onode As Map: Set onode = MakeNode("Object")
                 onode.SetValue "items", objItems
-                Set ParsePrimaryNode = onode
+                Set ParsePrimaryNode = onode.Clone
                 Exit Function
             End If
     End Select
