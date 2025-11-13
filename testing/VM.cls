@@ -546,7 +546,8 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             End If
 
             Dim argsColl As Collection: Set argsColl = node.GetValue("args")
-            Dim evaluated As New Collection
+            Dim evaluated As Collection
+            Set evaluated = New Collection
             Dim k As Long
             For k = 1 To argsColl.Count
                 evaluated.Add EvalExprNode(argsColl(k), progScope)
@@ -642,11 +643,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
 
     vAssignment tmpResult, Empty
 exitfun:
-    If IsObject(tmpResult) Then
-        Set EvalExprNode = tmpResult
-    Else
-        EvalExprNode = tmpResult
-    End If
+    vAssignment EvalExprNode, tmpResult
 End Function
 
 ' Call function program by index (AST). "args" is Collection of evaluated arg values.
