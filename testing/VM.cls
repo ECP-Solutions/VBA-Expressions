@@ -375,11 +375,13 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
     Dim switchVal As Variant: switchVal = EvalExprNode(node.GetValue("expr"), progScope)
     Dim cases As Collection: Set cases = node.GetValue("cases")
     Dim i As Long
+    Dim match As Boolean
     For i = 1 To cases.Count
         Dim pair As Collection: Set pair = cases(i)
         Dim caseExpr As Map: Set caseExpr = pair(1)
         Dim blockStmts As Collection: Set blockStmts = pair(2)
-        If EvalExprNode(caseExpr, progScope) = switchVal Then
+        match = (EvalExprNode(caseExpr, progScope) = switchVal)
+        If match Then
             Dim s As Long
             For s = 1 To blockStmts.Count
                 Dim ctrl As String: ctrl = ExecuteStmtNode(blockStmts(s), progScope)
@@ -388,14 +390,16 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
             Next s
         End If
     Next i
-    Dim defBlk As Collection: Set defBlk = node.GetValue("default")
-    If Not defBlk Is Nothing Then
-        Dim d As Long
-        For d = 1 To defBlk.Count
-            Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(defBlk(d), progScope)
-            If ctrl2 = "BREAK" Then ExecSwitchNode = "": Exit Function
-            If ctrl2 = "RETURN" Or ctrl2 = "ERR" Then ExecSwitchNode = ctrl2: Exit Function
-        Next d
+    If Not match Then
+        Dim defBlk As Collection: Set defBlk = node.GetValue("default")
+        If Not defBlk Is Nothing Then
+            Dim d As Long
+            For d = 1 To defBlk.Count
+                Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(defBlk(d), progScope)
+                If ctrl2 = "BREAK" Then ExecSwitchNode = "": Exit Function
+                If ctrl2 = "RETURN" Or ctrl2 = "ERR" Then ExecSwitchNode = ctrl2: Exit Function
+            Next d
+        End If
     End If
     ExecSwitchNode = ""
 End Function

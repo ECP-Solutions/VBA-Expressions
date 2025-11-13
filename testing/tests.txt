@@ -1,0 +1,240 @@
+Core tests (syntax & basic evaluation)
+
+arith_simple
+Script: print(1 + 2 * 3);
+Expected prints: 7
+Pass if: precedence * before +.
+Notes: checks operator precedence pipeline (ParseMul/ParseAdd).
+
+paren_grouping
+Script: print((1 + 2) * 3);
+Expected: 9
+Pass if parentheses handled correctly.
+
+negation_unary
+Script: print(-5 + 3, !false, !true);
+Expected: -2, True, False (three separate prints or comma-joined depending on print impl)
+Pass if: unary - and ! work.
+
+power_right_assoc
+Script: print(2 ^ 3 ^ 2);
+Expected: 512 (2^(3^2))
+Pass if: power associativity correct (if not, one of the exponent functions wrong).
+
+Boolean & short-circuit
+
+shortc_and
+Script: x = false; print(x && (1/0));
+Expected: False
+Pass if: RHS not evaluated when left is false (no division-by-zero).
+
+shortc_or
+Script: x = true; print(x || (1/0));
+Expected: True
+Pass if: RHS not evaluated when left is true.
+
+Conditionals & block attachment
+
+if_chain_same_line
+Script: a=2; if (a==1) { print('one') } elseif (a==2) { print('two') } else { print('other') }; print('done');
+Expected: two, done
+Pass if: elseif and else attach to the if node, not compiled as separate statements.
+
+if_multiline
+Script:
+a=3;
+if (a==1) {
+  print('one')
+} elseif (a==2) {
+  print('two')
+} elseif (a==3) {
+  print('three')
+} else {
+  print('other')
+};
+print('end');
+
+Expected: three, end
+
+For / While / Loop controls
+
+for_simple
+Script: s=0; for(i=1,i<=3,i=i+1) { s = s + i }; print(s);
+Expected: 6
+Pass if: i is visible in body and step; init was normalized to an Assign that writes to program scope.
+
+for_break_continue
+Script: s=0; for(i=1,i<=5,i=i+1) { if (i==3) { continue } if (i==5) { break } s = s + i }; print(s);
+Expected: 7
+Pass if: continue skips to next iteration (step executed), and break exits loop. Watch: ensure s = s + i is parsed as a separate statement after the two ifs (semicolon rules).
+
+while_break_continue
+Script: i=1; s=0; while (i <= 5) { if (i==2) { i = i + 1 ; continue } if (i==5) { break } s = s + i ; i = i + 1 }; print(s);
+Expected: 8 
+Notes: the : inline separator is not accepted in the parser
+
+for_init_expr_visibility
+Script: for (i = 1, i <= 2, i = i + 1) { print(i) }; print(i);
+Expected: 1, 2, 3 (prints from loop then final i value if loop preserves i in outer scope)
+Pass if: i persists after loop because init assigned in program scope.
+
+Switch, try/catch, errors
+
+switch_case
+Script: c='blue'; switch(c) { case 'red' { print('warm') } case 'blue' { print('cool') } default { print('other') } }
+Expected: cool
+
+try_catch
+Script: try { x = 1/0 } catch { print('caught') }
+Expected: caught
+Notes: runtime errors inside try should transfer flow to catch block. Confirm error is swallowed if catch exists.
+
+Functions, recursion, scope, closures
+
+function_basic
+Script: fun add(a,b) { return a + b }; print(add(2,3));
+Expected: 5
+
+function_scope_isolation
+Script: a=5; fun f(a) { a = a + 1 : print(a) } ; f(a); print(a);
+Expected: 6, 5
+Pass if: function parameter shadows global var in call scope.
+
+recursion_fib
+Script: fun fib(n) { if (n <= 2) { return 1 } return fib(n-1) + fib(n-2) } ; a = []; for(i=1,i<=6,i=i+1) { a[i] = fib(i) }; print(a[1]); print(a[6]);
+Expected: 1, 8
+Notes: ensure array indexing and recursive calls work.
+
+closure_shared_write
+Script: a = 1; f = fun() { a = a + 1; return a }; print(f()); print(a);
+Expected: 2, 2
+Pass if: closure captures program scope by reference and writes are visible outside.
+
+closure_multiple_instances
+Script:
+a = 0;
+fun make() { return fun() { a = a + 1 : return a } }
+f1 = make(); f2 = make();
+print(f1()); print(f2()); print(a)
+
+Expected: 1, 2, 2
+Notes: Both closures share same a if make() uses shared env. If you intended per-closure private a, compile-time behavior must capture different envs. This test checks sharing.
+
+Arrays & Indexing
+
+array_literal_and_length
+Script: a=[10,20,30]; print(a[2]); print(a.length);
+Expected: 20, 3
+
+array_index_assignment
+Script: a = [] ; a[1] = 7 ; a[3] = 9 ; print(a[1]); print(a[3]); print(a.length)
+Expected: 7, 9, 3
+Notes: checks auto-ReDim/-preserve logic.
+
+Objects, Members, Member assignment & calls
+
+object_literal_and_member
+Script: o = { x: 10, y: 'hi' } ; print(o.x) ; o.x = o.x + 5 ; print(o.x)
+Expected: 10, 15
+Pass if: Member reading/writing works; assignment uses property write path.
+
+nested_member_index_LValue
+Script: o = { a: [ {v:1}, {v:2} ] } ; o.a[2].v = o.a[2].v + 5 ; print(o.a[2].v)
+Expected: 7
+Notes: verifies Member LValue resolution like a.b[3].c = value.
+
+method_call_on_member
+Script: o = { v: 10, incr: fun(x) { return x + 1 } } ; print(o.incr(o.v))
+Expected: 11
+Notes: ensures Member used as callee or MemberCall dispatch works; fallback to closure call on property.
+
+Anonymous functions & passing as args
+
+anon_func_as_arg
+Script: fun apply(f,x) { return f(x) } ; print(apply(fun(y) { return y * 2 }, 5))
+Expected: 10
+Notes: ensure compiler emits FuncLiteral and VM supports invoking a function-value.
+
+anon_func_closure_arg
+Script:
+a = 5;
+fun apply(f) { return f() }
+print(apply(fun() { return a + 1 }))
+
+Expected: 6
+Notes: anon functions capture current env by reference.
+
+Ternary and compound assignments
+
+ternary_operator
+Script: print( 1 < 2 ? 'yes' : 'no' )
+Expected: yes
+Notes: Check parse of ? : precendence.
+
+compound_assignment_plus_equals
+Script: a=2; a += 3; print(a);
+Expected: 5
+Notes: compile pass should normalize += into a = a + 3 or VM should handle.
+
+Semicolon vs comma separator & parser warnings
+
+separator_semicolon_required
+Script: print('one') , print('two') ;
+Expected: depending on your chosen rule: If commas are only argument separators, this should raise a parse warning/error or treat as invalid top-level separator.
+Pass if: compiler logs an error or warning that commas cannot be used as statement separators at top-level. (If your implementation quietly allowed it, it's a bug per requirement.)
+
+missing_separator_after_block
+Script: if (1==1) { print('x') } print('y');
+Expected: x, y
+But if there's no semicolon between } and print and your grammar requires explicit separators, this should produce a log/warning; check behavior and ensure the compiler doesn't silently eat statements.
+Notes: this test checks your "log when missing statement separator" feature.
+
+VBAexpressions integration
+
+vbexpr_embedded
+Script: print( @( 2 + 3 * 4 ) );
+Expected: 14
+Notes: @(...) should be parsed as VBExpr node and evaluated by VBAexpressions seeded with program variables.
+
+vbexpr_function_fallback
+Script: print(sqrt(25));
+Expected: 5 if sqrt available in your VBAexpressions setup; otherwise this test verifies that call falls back to VB evaluator by EvalVBFunctionCall.
+Notes: Ensure call forwarding builds a correct expression like sqrt(__asf_vbarg_1).
+
+Error & edge-case tests
+
+division_by_zero_error
+Script: print(1/0);
+Expected: runtime error => either ERR in control flow or a try/catch would catch it. When not caught, gRuntimeLog should contain an error message.
+Pass if: error surfaced to runtime log and execution halts (or try/catch catches).
+
+unclosed_parenthesis_error
+Script: print( (1 + 2 );
+Expected: compile-time parse error.
+Pass if: CompileProgram raises or returns an error and program not added.
+
+circular_print_protection (optional depending on pretty-print implementation)
+Script:
+o = { };
+o.self = o;
+print(o);
+
+Expected: no infinite recursion or crash. Either prints some safe representation like {self: [Circular]} or logs an error.
+Notes: if your ValueToStringForPrint doesn't protect, this will infinite-loop — consider adding depth/cycle detection.
+
+Integration & regression suite
+
+combined_sanity
+Script:
+/* combined run */
+print('start');
+a=[1,2];
+print(a[1]);
+fun incr(x) { return x+1 };
+print(incr(4));
+try { y=1/0 } catch { print('err') }
+print('end');
+
+Expected: start, 1, 5, err, end
+Pass if many features cooperate together.
+

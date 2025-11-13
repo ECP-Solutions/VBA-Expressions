@@ -83,8 +83,8 @@ Tokenize_MainLoop:
                 toks.Add Array("SEP", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
             Case "(", ")", "{", "}", "[", "]"
                 toks.Add Array("PAREN", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
-            Case "+", "-", "*", "^", "%"
-                ' support +=, -=, *=, ^=, %=
+            Case "+", "-", "*", "/", "^", "%"
+                ' support +=, -=, *=, /=, ^=, %=
                 If i < n And Mid$(src, i + 1, 1) = "=" Then
                     toks.Add Array("OP", ch & "="): i = i + 2
                 Else
@@ -109,9 +109,9 @@ Tokenize_MainLoop:
                 If i < n And Mid$(src, i + 1, 1) = "=" Then toks.Add Array("OP", "=="): i = i + 2 Else toks.Add Array("OP", "="): i = i + 1
                 GoTo Tokenize_SkipToLoopEnd
             Case "?"
-                toks.Add Array("OP", "?"): i = i + 1: GoTo Tokenize_SkipToLoopEnd
+                toks.Add Array("OP", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
             Case ":"
-                toks.Add Array("OP", ":"): i = i + 1: GoTo Tokenize_SkipToLoopEnd
+                toks.Add Array("OP", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
             Case "'"
                 j = i + 1
                 Dim sb As String: sb = ""

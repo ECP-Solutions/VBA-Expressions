@@ -51,7 +51,7 @@ End Function
 ' ---------------------
 
 Public Function CompileProgram(src As String, Optional progName As String = "@anon") As Long
-    Dim p As parser
+    Dim p As Parser
     Dim toks As Collection
     Dim progScope As ScopeStack
     Dim stmtsAST As Collection
@@ -65,7 +65,7 @@ Public Function CompileProgram(src As String, Optional progName As String = "@an
         Exit Function
     End If
 
-    Set p = New parser
+    Set p = New Parser
     With p
         .SetGlobals GLOBALS_
         Set toks = .Tokenize(src)
@@ -540,8 +540,8 @@ ParseArgsMain:
 End Function
 
 Private Function ParseExprFromStringToNode(exprStr As String) As Map
-    Dim p As parser
-    Set p = New parser
+    Dim p As Parser
+    Set p = New Parser
     Dim toks As Collection
     Set toks = p.Tokenize(exprStr)
     Set ParseExprFromStringToNode = ParseExprTokensToNode(toks)
