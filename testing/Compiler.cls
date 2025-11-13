@@ -9,10 +9,15 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 ' Class Module: Compiler
 Option Explicit
+Private GLOBALS_ As Globals
 
 ' Produces AST (Maps) for program and functions.
 ' Relies on Parser.Tokenize, Map, ScopeStack and globals:
 '   ProgramCache, gPrograms (Collection), gFuncTable (Map), gFuncParams (Map)
+
+Public Sub SetGlobals(ByRef aGlobals As Globals)
+    Set GLOBALS_ = aGlobals
+End Sub
 
 ' Node helpers (Map-based)
 Private Function MakeNode(nodeType As String) As Map
@@ -53,16 +58,19 @@ Public Function CompileProgram(src As String, Optional progName As String = "@an
     Dim i As Long
     Dim node As Map
     
-    ASF_InitGlobals
+    GLOBALS_.ASF_InitGlobals
 
-    If ProgramCache.Exists(src) Then
-        CompileProgram = ProgramCache.GetValue(src)
+    If GLOBALS_.ProgramCache.Exists(src) Then
+        CompileProgram = GLOBALS_.ProgramCache.GetValue(src)
         Exit Function
     End If
 
     Set p = New parser
-    Set toks = p.Tokenize(src)
-
+    With p
+        .SetGlobals GLOBALS_
+        Set toks = .Tokenize(src)
+    End With
+    
     Set progScope = New ScopeStack
     progScope.Push
 
@@ -132,13 +140,13 @@ Compiler_MainLoop:
 
             Dim funcIdx As Long
             funcIdx = CompileFunctionAST(fname, argList, bodyTokens)
-            gFuncTable.Add fname, funcIdx
+            GLOBALS_.gFuncTable.Add fname, funcIdx
 
             Dim pa() As String
             If argList.Count > 0 Then ReDim pa(0 To argList.Count - 1)
             Dim j As Long
             For j = 1 To argList.Count: pa(j - 1) = argList(j): Next j
-            gFuncParams.Add fname, pa
+            GLOBALS_.gFuncParams.Add fname, pa
 
             If i <= toks.Count Then i = i + 1 ' skip the trailing '}' if present
             GoTo Compiler_MainLoop
@@ -207,14 +215,14 @@ CollectNextTop:
     Set normalizedStmts = NormalizeAssignsInStmts(stmtsAST)
     ' Normalize compound assignments (+=, -=, etc.)
     Set normalizedStmts = NormalizeCompoundAssigns(normalizedStmts)
-    pIndex = gPrograms.Count + 1
-    gPrograms.Add Array(progName, normalizedStmts, progScope.Raw)
-    ProgramCache.Add src, pIndex
+    pIndex = GLOBALS_.gPrograms.Count + 1
+    GLOBALS_.gPrograms.Add Array(progName, normalizedStmts, progScope.Raw)
+    GLOBALS_.ProgramCache.Add src, pIndex
     CompileProgram = pIndex
 End Function
 
 ' Compile a function body (AST) and register it as separate program
-Public Function CompileFunctionAST(fname As String, argList As Collection, bodyTokens As Collection) As Long
+Private Function CompileFunctionAST(fname As String, argList As Collection, bodyTokens As Collection) As Long
     Dim funcScope As ScopeStack
     Dim i As Long
     Dim bodyStmtsAST As Collection
@@ -224,14 +232,11 @@ Public Function CompileFunctionAST(fname As String, argList As Collection, bodyT
         funcScope.SetValue argList(i), Empty
     Next i
     Dim idx As Long
-'    Set bodyStmtsAST = ParseTokensToAST(bodyTokens)
-'    idx = gPrograms.Count + 1
-'    gPrograms.Add Array(fname, bodyStmtsAST, funcScope.Raw)
     Set bodyStmtsAST = ParseTokensToAST(bodyTokens)
     ' Normalize assignments inside function body as well
     Set bodyStmtsAST = NormalizeAssignsInStmts(bodyStmtsAST)
-    idx = gPrograms.Count + 1
-    gPrograms.Add Array(fname, bodyStmtsAST, funcScope.Raw)
+    idx = GLOBALS_.gPrograms.Count + 1
+    GLOBALS_.gPrograms.Add Array(fname, bodyStmtsAST, funcScope.Raw)
     CompileFunctionAST = idx
 End Function
 
@@ -319,7 +324,7 @@ ParseInner:
                             If Not (toks(i)(0) = "COMMENT") Then
                                 On Error Resume Next
                                 ' best-effort: add to runtime log if present, and print to Immediate
-                                If Not gRuntimeLog Is Nothing Then gRuntimeLog.Add "COMPILER: missing ';' after block near token index " & CStr(i)
+                                If Not GLOBALS_.gRuntimeLog Is Nothing Then GLOBALS_.gRuntimeLog.Add "COMPILER: missing ';' after block near token index " & CStr(i)
                                 On Error GoTo 0
                             End If
                         Else
@@ -734,9 +739,13 @@ Private Function ParsePowNode(types() As String, vals() As Variant, n As Long, B
     Dim node As Map
     Set left_ = ParseUnaryNode(types, vals, n, idx)
     Do While idx < n
+        ' Right-associative exponentiation:
+        ' if we see '^' after the left operand, parse the RHS with ParsePow
+        ' so a ^ b ^ c => a ^ (b ^ c)
         If Not (types(idx) = "OP" And vals(idx) = "^") Then Exit Do
         idx = idx + 1
-        Set right_ = ParseUnaryNode(types, vals, n, idx)
+        ' parse the right-hand side with ParsePow to ensure right-assoc
+        Set right_ = ParsePowNode(types, vals, n, idx)
         Set node = MakeNode("Binary")
         node.SetValue "op", "^"
         node.SetValue "left", left_.Clone

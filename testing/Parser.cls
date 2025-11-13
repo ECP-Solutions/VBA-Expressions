@@ -11,6 +11,12 @@ Attribute VB_Exposed = False
 Option Explicit
 Private Const d_Apostrophe As String = "'"
 
+Private GLOBALS_ As Globals
+
+Public Sub SetGlobals(ByRef aGlobals As Globals)
+    Set GLOBALS_ = aGlobals
+End Sub
+
 Public Function Tokenize(src As String) As Collection
     Dim toks As New Collection
     Dim i As Long, n As Long
@@ -140,7 +146,7 @@ ContinueDo:
                     i = j + 1
                     GoTo Tokenize_SkipToLoopEnd
                 Else
-                    If STRICT_STRINGS Then err.Raise vbObjectError + 1001, "Parser.Tokenize", "Unterminated string literal"
+                    If GLOBALS_.STRICT_STRINGS Then err.Raise vbObjectError + 1001, "Parser.Tokenize", "Unterminated string literal"
                     toks.Add Array("STRING", sb)
                     i = n + 1
                     GoTo Tokenize_SkipToLoopEnd

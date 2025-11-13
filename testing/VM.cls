@@ -9,9 +9,23 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 ' Class Module: VM (AST executor)
 Option Explicit
+Private Const VTP_MAX_DEPTH As Long = 8    ' safety depth limit
+Private Const VTP_MAX_ITEMS_INLINE As Long = 8 ' prefer inline for small containers
+Private VERBOSE_ As Boolean
+Private GLOBALS_ As Globals
 
 ' Executes AST nodes produced by Compiler (AST).
 ' Uses Map node types and ScopeStack. Logs to gRuntimeLog.
+
+Public Sub SetGlobals(aGlobals As Globals)
+    Set GLOBALS_ = aGlobals
+End Sub
+Public Property Get Verbose() As Boolean
+    Verbose = VERBOSE_
+End Property
+Public Property Let Verbose(aValue As Boolean)
+    VERBOSE_ = aValue
+End Property
 
 ' Node helpers (Map-based)
 Private Function MakeNode(nodeType As String) As Map
@@ -21,16 +35,16 @@ Private Function MakeNode(nodeType As String) As Map
 End Function
 
 Public Sub RunProgramByIndex(idx As Long)
-    ASF_InitGlobals
-    If idx < 1 Or idx > gPrograms.Count Then Exit Sub
-    Dim p As Variant: p = gPrograms(idx)
+    GLOBALS_.ASF_InitGlobals
+    If idx < 1 Or idx > GLOBALS_.gPrograms.Count Then Exit Sub
+    Dim p As Variant: p = GLOBALS_.gPrograms(idx)
     Dim progName As String: progName = p(0)
     Dim stmts As Collection: Set stmts = p(1)
     Dim rawScope As Collection: Set rawScope = p(2)
     Dim progScope As New ScopeStack
     progScope.LoadRaw rawScope
     progScope.Push
-    gRuntimeLog.Add "RUN Program: " & progName
+    If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "RUN Program: " & progName
     Dim i As Long
     For i = 1 To stmts.Count
         Dim ctrl As String
@@ -60,7 +74,7 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
                 If i > 1 Then sb = sb & ", "
                 sb = sb & outParts(i)
             Next i
-            gRuntimeLog.Add "PRINT:" & sb
+            If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "PRINT:" & sb
             Debug.Print sb
             ExecuteStmtNode = ""
             Exit Function
@@ -111,13 +125,13 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
 
         Case Else
             ' unknown node type
-            gRuntimeLog.Add "Unknown statement node: " & tp
+            If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "Unknown statement node: " & tp
             ExecuteStmtNode = ""
             Exit Function
     End Select
 
 ErrHandler:
-    gRuntimeLog.Add "VM statement error: " & err.Description
+    If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM statement error: " & err.Description
     err.Clear
     ExecuteStmtNode = "ERR"
 End Function
@@ -532,8 +546,8 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
 
             If Not hasCalleeExpr Then
                 ' named call (existing behavior + fallback to VBAexpressions)
-                If gFuncTable.Exists(fname) Then
-                    Dim funcIdx As Long: funcIdx = CLng(gFuncTable.GetValue(fname))
+                If GLOBALS_.gFuncTable.Exists(fname) Then
+                    Dim funcIdx As Long: funcIdx = CLng(GLOBALS_.gFuncTable.GetValue(fname))
                     vAssignment tmpResult, CallFuncByIndex_AST(funcIdx, evaluated)
                 Else
                     ' named but not internal -> try VBAexpressions function call
@@ -629,7 +643,7 @@ End Function
 
 ' Call function program by index (AST). "args" is Collection of evaluated arg values.
 Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Variant
-    Dim p As Variant: p = gPrograms(funcIdx)
+    Dim p As Variant: p = GLOBALS_.gPrograms(funcIdx)
     Dim rawScope As Collection: Set rawScope = p(2)
     Dim callScope As New ScopeStack
     Dim i As Long
@@ -637,8 +651,8 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
     callScope.Push
     Dim fname As String: fname = p(0)
     ' set params from gFuncParams
-    If gFuncParams.Exists(fname) Then
-        Dim pa As Variant: pa = gFuncParams.GetValue(fname)
+    If GLOBALS_.gFuncParams.Exists(fname) Then
+        Dim pa As Variant: pa = GLOBALS_.gFuncParams.GetValue(fname)
         For i = LBound(pa) To UBound(pa)
             If i - LBound(pa) + 1 <= args.Count Then
                 callScope.SetValue CStr(pa(i)), args(i - LBound(pa) + 1)
@@ -688,39 +702,276 @@ Private Function SafeAdd(a As Variant, b As Variant) As Variant
     If IsNumeric(a) And IsNumeric(b) Then SafeAdd = a + b Else SafeAdd = CStr(a) & CStr(b)
 End Function
 
+'Private Function ValueToStringForPrint(v As Variant) As String
+'    Dim ub As Long, s As String, i As Long
+'    If Not IsArray(v) Then
+'        If IsNull(v) Then ValueToStringForPrint = "NULL": Exit Function
+'        If IsEmpty(v) Then ValueToStringForPrint = "": Exit Function
+'        ' pretty-print Map objects as {k: v, ...}
+'        If TypeName(v) = "Map" Then
+'            Dim outMap As String: outMap = "{"
+'            Dim keysCol As Collection
+'            Set keysCol = v.keys
+'            Dim kk As Long
+'            For kk = 1 To keysCol.Count
+'                If kk > 1 Then outMap = outMap & ", "
+'                Dim kname As String: kname = CStr(keysCol(kk))
+'                Dim kval As Variant: kval = v.GetValue(kname)
+'                outMap = outMap & kname & ": " & ValueToStringForPrint(kval)
+'            Next kk
+'            outMap = outMap & "}"
+'            ValueToStringForPrint = outMap
+'            Exit Function
+'        End If
+'        ValueToStringForPrint = CStr(v): Exit Function
+'    End If
+'    ub = UBound(v)
+'    If ub < 0 Then ValueToStringForPrint = "[]": Exit Function
+'    s = "["
+'    For i = LBound(v) To ub
+'        If i > LBound(v) Then s = s & ", "
+'        s = s & CStr(v(i))
+'    Next i
+'    ValueToStringForPrint = s & "]"
+'End Function
 Private Function ValueToStringForPrint(v As Variant) As String
-    Dim ub As Long, s As String, i As Long
-    If Not IsArray(v) Then
-        If IsNull(v) Then ValueToStringForPrint = "NULL": Exit Function
-        If IsEmpty(v) Then ValueToStringForPrint = "": Exit Function
-        ' pretty-print Map objects as {k: v, ...}
-        If TypeName(v) = "Map" Then
-            Dim outMap As String: outMap = "{"
-            Dim keysCol As Collection
-            Set keysCol = v.keys
-            Dim kk As Long
-            For kk = 1 To keysCol.Count
-                If kk > 1 Then outMap = outMap & ", "
-                Dim kname As String: kname = CStr(keysCol(kk))
-                Dim kval As Variant: kval = v.GetValue(kname)
-                outMap = outMap & kname & ": " & ValueToStringForPrint(kval)
-            Next kk
-            outMap = outMap & "}"
-            ValueToStringForPrint = outMap
-            Exit Function
-        End If
-        ValueToStringForPrint = CStr(v): Exit Function
+    Dim visited As New Collection
+    ValueToStringForPrint = ValueToStringWithCtx(v, visited, 0)
+End Function
+' core recursive printer with context
+Private Function ValueToStringWithCtx(v As Variant, visited As Collection, depth As Long) As String
+    On Error GoTo ErrHandler
+
+    ' Depth guard
+    If depth > VTP_MAX_DEPTH Then
+        ValueToStringWithCtx = "..."
+        Exit Function
     End If
-    ub = UBound(v)
-    If ub < 0 Then ValueToStringForPrint = "[]": Exit Function
-    s = "["
-    For i = LBound(v) To ub
-        If i > LBound(v) Then s = s & ", "
-        s = s & CStr(v(i))
-    Next i
-    ValueToStringForPrint = s & "]"
+
+    ' Null / Empty
+    If IsNull(v) Then
+        ValueToStringWithCtx = "NULL": Exit Function
+    End If
+    If IsEmpty(v) Then
+        ValueToStringWithCtx = "": Exit Function
+    End If
+
+    ' Scalars
+    If VarType(v) = vbString Then
+        ValueToStringWithCtx = CStr(v): Exit Function
+    End If
+    If VarType(v) = vbBoolean Then
+        If CBool(v) Then ValueToStringWithCtx = "True" Else ValueToStringWithCtx = "False"
+        Exit Function
+    End If
+    If IsNumeric(v) Then
+        ValueToStringWithCtx = CStr(v): Exit Function
+    End If
+
+    ' Arrays (native VBA arrays)
+    If IsArray(v) Then
+        ValueToStringWithCtx = ArrayToString(v, visited, depth)
+        Exit Function
+    End If
+
+    ' Objects
+    If IsObject(v) Then
+        Dim tn As String: tn = TypeName(v)
+        Select Case tn
+            Case "Map"
+                ' cycle detection by object identity
+                Dim i As Long
+                For i = 1 To visited.Count
+                    If visited(i) Is v Then
+                        ValueToStringWithCtx = "[Circular]": Exit Function
+                    End If
+                Next i
+                visited.Add v
+                ValueToStringWithCtx = MapToString(v, visited, depth + 1)
+                visited.Remove visited.Count
+                Exit Function
+
+            Case "Collection"
+                ' cycle detection
+                Dim j As Long
+                For j = 1 To visited.Count
+                    If visited(j) Is v Then
+                        ValueToStringWithCtx = "[Circular]": Exit Function
+                    End If
+                Next j
+                visited.Add v
+                ValueToStringWithCtx = CollectionToString(v, visited, depth + 1)
+                visited.Remove visited.Count
+                Exit Function
+
+            Case Else
+                ' generic objects: try to call a ToString-like property if present, else fallback
+                ValueToStringWithCtx = ObjectToString(v, visited, depth + 1)
+                Exit Function
+        End Select
+    End If
+
+    ' Fallback
+    ValueToStringWithCtx = CStr(v)
+    Exit Function
+
+ErrHandler:
+    ' On any unexpected error, return a safe placeholder and continue
+    On Error Resume Next
+    ValueToStringWithCtx = "[error: " & err.Number & "]"
+    err.Clear
 End Function
 
+' Convert Map -> string
+Private Function MapToString(m As Variant, visited As Collection, depth As Long) As String
+    On Error GoTo ErrHandler
+    Dim keys As Collection: Set keys = m.keys
+    Dim kcnt As Long: kcnt = keys.Count
+
+    If kcnt = 0 Then
+        MapToString = "{}": Exit Function
+    End If
+
+    ' For small maps and shallow depth prefer inline representation
+    If kcnt <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
+        Dim parts() As String
+        ReDim parts(1 To kcnt)
+        Dim i As Long
+        For i = 1 To kcnt
+            Dim key As String: key = CStr(keys(i))
+            Dim val As Variant: val = m.GetValue(key)
+            parts(i) = CStr(key) & ": " & ValueToStringWithCtx(val, visited, depth)
+        Next i
+        MapToString = "{ " & Join(parts, ", ") & " }"
+        Exit Function
+    End If
+
+    ' Multi-line pretty print
+    Dim sb As String
+    Dim indent As String: indent = String(depth * 2, " ")
+    Dim innerIndent As String: innerIndent = String((depth + 1) * 2, " ")
+    sb = "{"
+    Dim first As Boolean: first = True
+    Dim kk As Variant
+    For Each kk In keys
+        If Not first Then sb = sb & vbCrLf
+        sb = sb & innerIndent & CStr(kk) & ": " & ValueToStringWithCtx(m.GetValue(CStr(kk)), visited, depth + 1)
+        first = False
+    Next kk
+    sb = sb & vbCrLf & indent & "}"
+    MapToString = sb
+    Exit Function
+
+ErrHandler:
+    MapToString = "{<error>}"
+    err.Clear
+End Function
+
+' Convert Collection -> string (treat as list)
+Private Function CollectionToString(col As Variant, visited As Collection, depth As Long) As String
+    On Error GoTo ErrHandler
+    Dim n As Long: n = col.Count
+    If n = 0 Then CollectionToString = "[]": Exit Function
+    If n <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
+        Dim tmp() As String: ReDim tmp(1 To n)
+        Dim ii As Long
+        For ii = 1 To n
+            tmp(ii) = ValueToStringWithCtx(col(ii), visited, depth)
+        Next ii
+        CollectionToString = "[ " & Join(tmp, ", ") & " ]"
+        Exit Function
+    End If
+
+    Dim sb As String: sb = "["
+    Dim i As Long
+    Dim indent As String: indent = String((depth + 1) * 2, " ")
+    For i = 1 To n
+        If i > 1 Then sb = sb & vbCrLf
+        sb = sb & indent & ValueToStringWithCtx(col(i), visited, depth + 1)
+    Next i
+    sb = sb & vbCrLf & String(depth * 2, " ") & "]"
+    CollectionToString = sb
+    Exit Function
+
+ErrHandler:
+    CollectionToString = "[<error>]"
+    err.Clear
+End Function
+
+' Convert native VBA array -> string
+Private Function ArrayToString(arr As Variant, visited As Collection, depth As Long) As String
+    On Error GoTo ErrHandler
+    Dim lb As Long, ub As Long
+    lb = LBound(arr): ub = UBound(arr)
+    Dim n As Long: n = ub - lb + 1
+    If n <= 0 Then ArrayToString = "[]": Exit Function
+    If n <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
+        Dim tmp() As String: ReDim tmp(1 To n)
+        Dim i As Long
+        For i = lb To ub
+            tmp(i - lb + 1) = ValueToStringWithCtx(arr(i), visited, depth)
+        Next i
+        ArrayToString = "[ " & Join(tmp, ", ") & " ]"
+        Exit Function
+    End If
+
+    Dim sb As String: sb = "["
+    Dim indent As String: indent = String((depth + 1) * 2, " ")
+    Dim ii As Long
+    For ii = lb To ub
+        If ii > lb Then sb = sb & vbCrLf
+        sb = sb & indent & ValueToStringWithCtx(arr(ii), visited, depth + 1)
+    Next ii
+    sb = sb & vbCrLf & String(depth * 2, " ") & "]"
+    ArrayToString = sb
+    Exit Function
+
+ErrHandler:
+    ArrayToString = "[<error>]"
+    err.Clear
+End Function
+
+' Generic object to string fallback:
+' - If the object is a Map-like (has Keys and GetValue), will attempt to treat it as Map.
+' - Else TypeName + simple to-string
+Private Function ObjectToString(obj As Variant, visited As Collection, depth As Long) As String
+    On Error GoTo Fallback
+    Dim tn As String: tn = TypeName(obj)
+
+    ' Attempt Map-like duck typing: presence of Keys and GetValue
+    ' (use On Error to bail out if methods missing)
+    Dim dummy As Collection
+    Dim tryKeys As Collection
+    On Error GoTo Fallback2
+    Set tryKeys = obj.keys
+    ' if successful, treat as Map
+    Dim i As Long
+    For i = 1 To visited.Count
+        If visited(i) Is obj Then
+            ObjectToString = "[Circular]": Exit Function
+        End If
+    Next i
+    visited.Add obj
+    ObjectToString = MapToString(obj, visited, depth)
+    visited.Remove visited.Count
+    Exit Function
+
+Fallback2:
+    ' Not a Map-like object: try default string
+    On Error GoTo Fallback
+    ObjectToString = "<" & tn & ">"
+    Exit Function
+
+Fallback:
+    ObjectToString = "<object>"
+    err.Clear
+End Function
+
+' Utility to escape short strings for printing if you want (optional)
+Private Function EscapeStringForPrint(s As String) As String
+    ' currently returns s raw; adapt if you want quoted output
+    EscapeStringForPrint = s
+End Function
  ' VBAexpressions integration helpers
  ' ---------------------
  ' Evaluate a raw VBAexpressions expression string using a VBAexpressions instance,
@@ -757,7 +1008,7 @@ Private Function EvalVBExpressionWithScope(expr As String, progScope As ScopeSta
      Exit Function
 ErrHandler:
      ' convert to runtime log and return Empty
-     gRuntimeLog.Add "VBAexpr error: " & err.Description
+     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VBAexpr error: " & err.Description
      err.Clear
      EvalVBExpressionWithScope = Empty
 End Function
@@ -810,7 +1061,7 @@ Private Function EvalVBFunctionCall(fname As String, args As Collection, progSco
      End If
      Exit Function
 ErrHandler:
-     gRuntimeLog.Add "VBAexpr function-call error: " & err.Description
+     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VBAexpr function-call error: " & err.Description
      err.Clear
      EvalVBFunctionCall = Empty
 End Function
@@ -875,7 +1126,7 @@ End Function
      CallClosure = Empty
      Exit Function
 ErrHandler:
-     gRuntimeLog.Add "CallClosure error: " & err.Description
+     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "CallClosure error: " & err.Description
      err.Clear
      CallClosure = Empty
  End Function
