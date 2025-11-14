@@ -55,6 +55,7 @@ Public Function CompileProgram(src As String, Optional progName As String = "@an
     Dim toks As Collection
     Dim progScope As ScopeStack
     Dim stmtsAST As Collection
+    Dim stmtTokens As Collection
     Dim i As Long
     Dim node As Map
     
@@ -152,7 +153,6 @@ Compiler_MainLoop:
             GoTo Compiler_MainLoop
         Else
             ' collect a top-level statement tokens (nesting-aware) then parse to AST node
-            Dim stmtTokens As Collection
             Dim braceDepth As Long: braceDepth = 0
             Dim parenDepth As Long: parenDepth = 0
             Dim bracketDepth As Long: bracketDepth = 0
@@ -1832,18 +1832,20 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set expr = node.GetValue("expr")
             ' If expression is a Binary "=" with assignable LHS, convert to Assign node.
             If Not expr Is Nothing Then
-                If expr.GetValue("type") = "Binary" And CStr(expr.GetValue("op")) = "=" Then
-                    Set left_ = expr.GetValue("left")
-                    If Not left_ Is Nothing Then
-                        If IsAssignableNode(left_) Then
-                            a.Add "type", "Assign"
-                            a.SetValue "left", left_
-                            ' right: normalize recursively as expression
-                            Set r = NormalizeExprNodeRecursive(expr.GetValue("right"))
-                            If r Is Nothing Then Set r = expr.GetValue("right")
-                            a.SetValue "right", r
-                            Set NormalizeNodeRecursive = a
-                            Exit Function
+                If expr.GetValue("type") = "Binary" Then
+                    If CStr(expr.GetValue("op")) = "=" Then
+                        Set left_ = expr.GetValue("left")
+                        If Not left_ Is Nothing Then
+                            If IsAssignableNode(left_) Then
+                                a.Add "type", "Assign"
+                                a.SetValue "left", left_
+                                ' right: normalize recursively as expression
+                                Set r = NormalizeExprNodeRecursive(expr.GetValue("right"))
+                                If r Is Nothing Then Set r = expr.GetValue("right")
+                                a.SetValue "right", r
+                                Set NormalizeNodeRecursive = a
+                                Exit Function
+                            End If
                         End If
                     End If
                 End If
