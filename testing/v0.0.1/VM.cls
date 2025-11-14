@@ -13,6 +13,7 @@ Private Const VTP_MAX_DEPTH As Long = 8    ' safety depth limit
 Private Const VTP_MAX_ITEMS_INLINE As Long = 8 ' prefer inline for small containers
 Private VERBOSE_ As Boolean
 Private GLOBALS_ As Globals
+Private OUTPUT__ As Variant
 
 ' Executes AST nodes produced by Compiler (AST).
 ' Uses Map node types and ScopeStack. Logs to gRuntimeLog.
@@ -20,6 +21,9 @@ Private GLOBALS_ As Globals
 Public Sub SetGlobals(aGlobals As Globals)
     Set GLOBALS_ = aGlobals
 End Sub
+Public Property Get OUTPUT_() As Variant
+    vAssignment OUTPUT_, OUTPUT__
+End Property
 Public Property Get Verbose() As Boolean
     Verbose = VERBOSE_
 End Property
@@ -49,7 +53,10 @@ Public Sub RunProgramByIndex(idx As Long)
     For i = 1 To stmts.Count
         Dim ctrl As String
         ctrl = ExecuteStmtNode(stmts(i), progScope)
-        If ctrl = "RETURN" Then Exit For
+        If ctrl = "RETURN" Then
+            vAssignment OUTPUT__, progScope.GetValue("__return")
+            Exit For
+        End If
         If ctrl = "ERR" Then Exit For
     Next i
     progScope.Pop
@@ -66,7 +73,7 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
             Dim outParts As New Collection
             Dim i As Long
             For i = 1 To args.Count
-                Dim v As Variant: v = EvalExprNode(args(i), progScope)
+                Dim v As Variant: vAssignment v, EvalExprNode(args(i), progScope)
                 outParts.Add ValueToStringForPrint(v)
             Next i
             Dim sb As String: sb = ""
@@ -111,7 +118,7 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
 
         Case "Return"
             Dim rex As Map: Set rex = node.GetValue("expr")
-            If Not rex Is Nothing Then rval = EvalExprNode(rex, progScope) Else rval = Empty
+            If Not rex Is Nothing Then vAssignment rval, EvalExprNode(rex, progScope) Else rval = Empty
             progScope.SetValue "__return", rval
             ExecuteStmtNode = "RETURN": Exit Function
 
@@ -186,7 +193,7 @@ End Sub
 Private Sub AssignToArray(arrName As String, idxV As Variant, val As Variant, progScope As ScopeStack)
     Dim arr As Variant
     Dim pos As Long
-    Dim ub As Long
+    Dim UB As Long
     Dim lb As Long
 
     arr = progScope.GetValue(arrName)
@@ -201,15 +208,15 @@ Private Sub AssignToArray(arrName As String, idxV As Variant, val As Variant, pr
             err.Raise vbObjectError + 5002, "VM.AssignToArray", "Not an array"
         End If
     End If
-    ub = -1
+    UB = -1
     If IsArray(arr) Then
-        ub = UBound(arr)
+        UB = UBound(arr)
     End If
-    If ub < 0 Then
+    If UB < 0 Then
         ReDim arr(1 To pos)
     Else
         lb = LBound(arr)
-        If pos > (ub - lb + 1) Then
+        If pos > (UB - lb + 1) Then
             ReDim Preserve arr(lb To lb + pos - 1)
         End If
     End If
@@ -423,6 +430,8 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
     Dim tp As String: tp = node.GetValue("type")
     Dim items As Collection
     Dim tmpResult As Variant
+    Dim pi As Long
+    Dim funcIdx As Long
     
     Select Case tp
         Case "FuncLiteral", "AnonFunc"
@@ -430,11 +439,14 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim cparams As Collection: vAssignment cparams, node.GetValue("params")
             Dim cbody As Collection: vAssignment cbody, node.GetValue("body")
             Dim cmap As New Map
+            Dim envCopy As ScopeStack
             cmap.Add "type", "Closure"
             cmap.SetValue "params", cparams
             cmap.SetValue "body", cbody
             ' capture current scope reference (shared-write)
-            cmap.SetValue "env", progScope
+            Set envCopy = New ScopeStack
+            envCopy.LoadRawByRef progScope.RawByRef
+            cmap.SetValue "env", envCopy
             vAssignment tmpResult, cmap
             GoTo exitfun
         Case "VBEXPR"
@@ -446,7 +458,6 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             ' Build and return a Map containing the evaluated properties
             Set items = node.GetValue("items")
             Dim om As New Map
-            Dim pi As Long
             Dim valNode As Map
             Dim pair As Collection
             Dim key As String
@@ -463,7 +474,123 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             vAssignment tmpResult, node.GetValue("value")
             GoTo exitfun
         Case "Variable"
-            vAssignment tmpResult, progScope.GetValue(node.GetValue("name"))
+            ' Robust variable resolution:
+            '  - return actual value from scope (covers closures stored as Map AST nodes)
+            '  - if scope has no value, fallback to named functions table (gFuncTable)
+            '  - optional fallback to gFuncObjects registry
+            Dim vName As String: vName = CStr(node.GetValue("name"))
+            Dim vVal As Variant
+            vAssignment vVal, progScope.GetValue(vName)
+
+            ' If scope contains a non-empty value, return it — this covers closures
+            ' stored as Map/AST nodes (FuncLiteral/Closure/etc.).
+            If Not IsEmpty(vVal) Then
+                ' If it's a Map and looks like a function node, return as callable
+                On Error Resume Next
+                If TypeName(vVal) = "Map" Then
+                    Dim maybeType As Variant
+                    maybeType = Empty
+                    On Error Resume Next
+                    maybeType = vVal.GetValue("type")
+                    On Error GoTo 0
+                    If Not IsEmpty(maybeType) Then
+                        Dim tt As String: tt = CStr(maybeType)
+                        ' Common names for function-like AST nodes / closures:
+                        If tt = "FuncLiteral" Or tt = "Function" Or tt = "Closure" Or tt = "AnonFunction" Then
+                            vAssignment tmpResult, vVal
+                            GoTo exitfun
+                        End If
+                    End If
+                End If
+                ' Not necessarily a function-like Map — still return stored value.
+                vAssignment tmpResult, vVal
+                GoTo exitfun
+            End If
+
+            ' Not in scope (or Empty). Fallback: named compiled function table.
+            On Error Resume Next
+            If GLOBALS_.gFuncTable.Exists(vName) Then
+                Dim fIdxVal As Variant: fIdxVal = GLOBALS_.gFuncTable.GetValue(vName)
+                On Error GoTo 0
+                If Not IsEmpty(fIdxVal) Then
+                    funcIdx = CLng(fIdxVal)
+
+                    ' Build a Closure map with the shape CallClosure expects:
+                    ' "type" = "Closure", "params" = Collection, "body" = Collection, "env" = ScopeStack
+                    Dim closureMap As New Map
+                    closureMap.Add "type", "Closure"
+
+                    ' params: convert stored gFuncParams (likely an array) into a Collection
+                    Dim paramsCol As Collection
+                    Set paramsCol = New Collection
+                    If GLOBALS_.gFuncParams.Exists(vName) Then
+                        Dim paVar As Variant: paVar = GLOBALS_.gFuncParams.GetValue(vName)
+                        If IsArray(paVar) Then
+                            If ArrayIsInit(paVar) Then
+                                For pi = LBound(paVar) To UBound(paVar)
+                                    paramsCol.Add CStr(paVar(pi))
+                                Next pi
+                            Else
+                                paramsCol.Add vbNullString
+                            End If
+                        ElseIf TypeName(paVar) = "Collection" Then
+                            ' already a collection — copy it
+                            Dim it As Variant
+                            For Each it In paVar
+                                paramsCol.Add it
+                            Next it
+                        End If
+                    End If
+                    closureMap.SetValue "params", paramsCol
+
+                    ' body and env come from gPrograms(funcIdx)
+                    Dim pinfo As Variant
+                    On Error Resume Next
+                    pinfo = GLOBALS_.gPrograms(funcIdx)
+                    If err.Number <> 0 Then
+                        err.Clear
+                        ' fallback: no program info — return Empty
+                        EvalExprNode = Empty
+                        Exit Function
+                    End If
+                    On Error GoTo 0
+
+                    ' pinfo layout: Array(name, stmtsCollection, rawScopeCollection)
+                    Dim bodyStmts As Collection
+                    Set bodyStmts = pinfo(1)
+                    closureMap.SetValue "body", bodyStmts
+
+                    ' env: create ScopeStack and LoadRaw with stored raw scope (so closure has env object)
+                    Dim envScope As ScopeStack
+                    Set envScope = New ScopeStack
+                    envScope.LoadRawByRef progScope.RawByRef
+                    Set pinfo(2) = envScope.RawByRef
+                    closureMap.SetValue "env", envScope
+
+                    ' optionally store a name/funcIdx for debugging
+                    closureMap.SetValue "name", vName
+                    closureMap.SetValue "funcIdx", funcIdx
+
+                    vAssignment tmpResult, closureMap
+                    GoTo exitfun
+                End If
+            End If
+            On Error GoTo 0
+
+            ' Defensive fallback: optional function-objects registry (NOT IMPLEMENTED YET).
+'            On Error Resume Next
+'            If Not (gFuncObjects Is Nothing) Then
+'                If gFuncObjects.Exists(vName) Then
+'                    EvalExprNode = gFuncObjects.GetValue(vName)
+'                    On Error GoTo 0
+'                    GoTo exitfun
+'                End If
+'            End If
+'            On Error GoTo 0
+
+            ' Not found — log to runtime log and return Empty
+            If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vName & "' is undefined or not callable (returned Empty)."
+            vAssignment tmpResult, Empty
             GoTo exitfun
         Case "Member"
             ' Member(base, prop) — evaluate base, then property access
@@ -521,8 +648,9 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             End If
         Case "Call"
             ' Call can be either:
-            '  - named call (node.GetValue("name") is a string)
-            '  - dynamic callee (node contains "callee" map) -> evaluate it to get a function value
+            '  - Call with "name" (string) and args (legacy)
+            '  - Call with "callee" (an expression node) and args
+            '       (new: allows variable holding closures)
             Dim hasCalleeExpr As Boolean: hasCalleeExpr = False
             Dim calleeExpr As Map
             If node.Exists("callee") Then
@@ -556,7 +684,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             If Not hasCalleeExpr Then
                 ' named call (existing behavior + fallback to VBAexpressions)
                 If GLOBALS_.gFuncTable.Exists(fname) Then
-                    Dim funcIdx As Long: funcIdx = CLng(GLOBALS_.gFuncTable.GetValue(fname))
+                    funcIdx = CLng(GLOBALS_.gFuncTable.GetValue(fname))
                     vAssignment tmpResult, CallFuncByIndex_AST(funcIdx, evaluated)
                 Else
                     ' named but not internal -> try VBAexpressions function call
@@ -646,6 +774,19 @@ exitfun:
     vAssignment EvalExprNode, tmpResult
 End Function
 
+Private Function ReturnCollection(ByRef aColl As Variant) As Collection
+    Set ReturnCollection = aColl
+End Function
+Private Function ArrayIsInit(aArray As Variant) As Boolean
+    Dim UB As Long
+    ArrayIsInit = True
+    On Error GoTo err_handler
+    UB = UBound(aArray)
+    Exit Function
+err_handler:
+    err.Clear
+    ArrayIsInit = False
+End Function
 ' Call function program by index (AST). "args" is Collection of evaluated arg values.
 Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Variant
     Dim p As Variant: p = GLOBALS_.gPrograms(funcIdx)
@@ -906,14 +1047,14 @@ End Function
 ' Convert native VBA array -> string
 Private Function ArrayToString(arr As Variant, visited As Collection, depth As Long) As String
     On Error GoTo ErrHandler
-    Dim lb As Long, ub As Long
-    lb = LBound(arr): ub = UBound(arr)
-    Dim n As Long: n = ub - lb + 1
+    Dim lb As Long, UB As Long
+    lb = LBound(arr): UB = UBound(arr)
+    Dim n As Long: n = UB - lb + 1
     If n <= 0 Then ArrayToString = "[]": Exit Function
     If n <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
         Dim tmp() As String: ReDim tmp(1 To n)
         Dim i As Long
-        For i = lb To ub
+        For i = lb To UB
             tmp(i - lb + 1) = ValueToStringWithCtx(arr(i), visited, depth)
         Next i
         ArrayToString = "[ " & Join(tmp, ", ") & " ]"
@@ -923,7 +1064,7 @@ Private Function ArrayToString(arr As Variant, visited As Collection, depth As L
     Dim sb As String: sb = "["
     Dim indent As String: indent = String((depth + 1) * 2, " ")
     Dim ii As Long
-    For ii = lb To ub
+    For ii = lb To UB
         If ii > lb Then sb = sb & vbCrLf
         sb = sb & indent & ValueToStringWithCtx(arr(ii), visited, depth + 1)
     Next ii
@@ -1118,7 +1259,7 @@ End Function
      For stmtIdx = 1 To stmts.Count
          ctrl = ExecuteStmtNode(stmts(stmtIdx), env)
          If ctrl = "RETURN" Then
-             CallClosure = env.GetValue("__return")
+             vAssignment CallClosure, env.GetValue("__return")
              env.Pop
              Exit Function
          ElseIf ctrl = "ERR" Then
