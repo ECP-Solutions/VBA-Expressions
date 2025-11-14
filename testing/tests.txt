@@ -96,7 +96,7 @@ Script: fun add(a,b) { return a + b }; print(add(2,3));
 Expected: 5
 
 function_scope_isolation
-Script: a=5; fun f(a) { a = a + 1 : print(a) } ; f(a); print(a);
+Script: a=5; fun f(a) { a = a + 1 ; print(a) } ; f(a); print(a);
 Expected: 6, 5
 Pass if: function parameter shadows global var in call scope.
 
@@ -112,11 +112,7 @@ Pass if: closure captures program scope by reference and writes are visible outs
 
 closure_multiple_instances
 Script:
-a = 0;
-fun make() { return fun() { a = a + 1 : return a } }
-f1 = make(); f2 = make();
-print(f1()); print(f2()); print(a)
-
+a = 0; fun make() { return fun() { a = a + 1 ; return a } }; f1 = make(); f2 = make(); print(f1()); print(f2()); print(a);
 Expected: 1, 2, 2
 Notes: Both closures share same a if make() uses shared env. If you intended per-closure private a, compile-time behavior must capture different envs. This test checks sharing.
 
