@@ -28,6 +28,18 @@ Private Sub Class_Initialize()
     pFrames.Add m
 End Sub
 
+Public Function CaptureByReference() As ScopeStack
+    ' Create a new ScopeStack whose frames reference the same Map objects
+    ' currently stored in this ScopeStack's pFrames. Useful for closures.
+    Dim s As New ScopeStack
+    Dim refFrames As New Collection
+    Dim i As Long
+    For i = 1 To pFrames.Count
+        refFrames.Add pFrames(i)   ' add the map object reference
+    Next i
+    s.LoadRawByRef refFrames
+    Set CaptureByReference = s
+End Function
 ' Return clones of frames (safe outward view)
 Public Property Get Raw() As Collection
     Dim out As New Collection
@@ -49,17 +61,17 @@ Public Property Get RawByRef() As Collection
 End Property
 
 ' Replace internal frames with clones of provided frames (default safe behavior)
-Public Sub LoadRaw(framesCol As Collection)
+Public Sub LoadRaw(framesCol As Collection) 'expects a collection
     Set pFrames = New Collection
-    Dim F As Variant
-    For Each F In framesCol
-        If TypeName(F) = "Map" Then
-            pFrames.Add F.Clone
+    Dim f As Variant
+    For Each f In framesCol
+        If TypeName(f) = "Map" Then
+            pFrames.Add f.Clone
         Else
             Dim tmp As New Map
             pFrames.Add tmp
         End If
-    Next F
+    Next f
     If pFrames.Count = 0 Then
         Dim mm As New Map
         pFrames.Add mm
@@ -69,15 +81,15 @@ End Sub
 ' Replace internal frames by reference (no cloning). Use only when building closures.
 Public Sub LoadRawByRef(framesCol As Collection)
     Set pFrames = New Collection
-    Dim F As Variant
-    For Each F In framesCol
-        If TypeName(F) = "Map" Then
-            pFrames.Add F
+    Dim f As Variant
+    For Each f In framesCol
+        If TypeName(f) = "Map" Then
+            pFrames.Add f
         Else
             Dim tmp As New Map
             pFrames.Add tmp
         End If
-    Next F
+    Next f
     If pFrames.Count = 0 Then
         Dim mm2 As New Map
         pFrames.Add mm2
