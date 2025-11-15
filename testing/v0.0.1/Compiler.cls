@@ -888,14 +888,23 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 End If
             End If
 
-            ' .length special-case on collapsed IDENT token (preserve behavior, but emit Call with callee)
+            Dim lenCall As Map
+            Dim builtinLen As Map
+            Dim al As Collection
+            ' .length special-case on collapsed IDENT token (emit Call with callee)
             If right$(name, 7) = ".length" Then
                 Dim arrName As String: arrName = left$(name, Len(name) - 7)
                 Dim varN As Map: Set varN = MakeNode("Variable")
                 varN.SetValue "name", arrName
-                Dim lenCall As Map: Set lenCall = MakeNode("Call")
-                lenCall.SetValue "callee", varN
-                Dim al As New Collection
+                Set lenCall = MakeNode("Call")
+                ' Emit a call to the builtin callee ".__len__" with the array variable as sole arg.
+                Set builtinLen = MakeNode("Variable")
+                builtinLen.SetValue "name", ".__len__"
+                ' Emit a call to builtin callee ".__len__" with the array variable as sole arg.
+                Set builtinLen = MakeNode("Variable")
+                builtinLen.SetValue "name", ".__len__"
+                lenCall.SetValue "callee", builtinLen
+                Set al = New Collection
                 al.Add varN
                 lenCall.SetValue "args", al
                 idx = idx + 1
@@ -903,7 +912,10 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 Exit Function
             End If
 
-            ' collapsed index literal, e.g. name[3] in single IDENT token => produce Index node
+            ' Handle collapsed identifiers with array/index and optional trailing ".length"
+            ' Examples:
+            '   a[3]
+            '   a[3].length
             If InStr(name, "[") > 0 Then
                 Dim base As String: base = left$(name, InStr(name, "[") - 1)
                 Dim idxStr As String: idxStr = Mid$(name, InStr(name, "[") + 1, Len(name) - InStr(name, "[") - 1)
@@ -914,10 +926,29 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 inNode.SetValue "base", vn
                 inNode.SetValue "index", idxNodeFromStr
                 idx = idx + 1
-                Set ParsePrimaryNode = inNode.Clone
+                ' If next tokens are ". length" treat as builtin length call on the indexed result.
+                If idx < n Then
+                    If types(idx) = "SYM" And vals(idx) = "." Then
+                        If (idx + 1) < n And types(idx + 1) = "IDENT" And LCase$(CStr(vals(idx + 1))) = "length" Then
+                            ' consume '.' and 'length'
+                            idx = idx + 2
+                            Set lenCall = MakeNode("Call")
+                            ' set both 'callee' and 'name' for maximum compatibility with VM variants
+                            Set builtinLen = MakeNode("Variable")
+                            builtinLen.SetValue "name", ".__len__"
+                            lenCall.SetValue "callee", builtinLen
+                            lenCall.SetValue "name", ".__len__"
+                            Set al = New Collection
+                            al.Add inNode
+                            lenCall.SetValue "args", al
+                            Set ParsePrimaryNode = lenCall
+                            Exit Function
+                        End If
+                    End If
+                End If
+                Set ParsePrimaryNode = inNode
                 Exit Function
             End If
-
             ' create initial variable node for an IDENT and then apply postfix operators:
             Dim currentNode As Map: Set currentNode = MakeNode("Variable")
             currentNode.SetValue "name", name
