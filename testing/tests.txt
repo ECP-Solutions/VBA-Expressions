@@ -127,6 +127,11 @@ Script: a = [] ; a[1] = 7 ; a[3] = 9 ; print(a[1]); print(a[3]); print(a.length)
 Expected: 7, 9, 3
 Notes: checks auto-ReDim/-preserve logic.
 
+array_of_arrays_length
+Script: a = [] ; a[1] = [7,8] ; a[3] = [9,10,11] ; print(a[1]); print(a[3]); print(a[3].length)
+Expected: [ 7, 8 ], [ 9, 10, 11], 3
+Notes: Validates correct handling of nested arrays.
+
 Objects, Members, Member assignment & calls
 
 object_literal_and_member
