@@ -651,15 +651,23 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             '  - Call with "name" (string) and args (legacy)
             '  - Call with "callee" (an expression node) and args
             '       (new: allows variable holding closures)
-            Dim hasCalleeExpr As Boolean: hasCalleeExpr = False
-            Dim calleeExpr As Map
-            If node.Exists("callee") Then
-                hasCalleeExpr = True
-                Set calleeExpr = node.GetValue("callee")
+
+            Dim fname As String
+            Dim hasCalleeExpr As Boolean
+            If node.Exists("name") Then
+                fname = CStr(node.GetValue("name"))
             End If
-            Dim fname As String: fname = vbNullString
-            If Not hasCalleeExpr Then
-                fname = node.GetValue("name")
+            If fname = "" Then
+                ' try to derive name from callee expression when callee is a simple Variable node
+                If node.Exists("callee") Then
+                    hasCalleeExpr = True
+                    Dim calleeExpr As Map: Set calleeExpr = node.GetValue("callee")
+                    If Not calleeExpr Is Nothing Then
+                        If calleeExpr.GetValue("type") = "Variable" Then
+                            fname = CStr(calleeExpr.GetValue("name"))
+                        End If
+                    End If
+                End If
             End If
             ' builtin length function
             If fname = ".__len__" Then
