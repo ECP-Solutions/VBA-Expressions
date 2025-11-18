@@ -23,8 +23,8 @@ Public Sub Add(key As String, value As Variant)
     If Me.Exists(key) Then
         err.Raise vbObjectError + 10000, "Map.Add", "Key already exists: " & key
     End If
-    pItems.Add value, CStr(key)
-    pKeys.Add CStr(key)
+    pItems.Add value, key
+    pKeys.Add key
 End Sub
 
 ' SetValue: set or replace value for key
@@ -32,15 +32,21 @@ Public Sub SetValue(key As String, value As Variant)
     If Me.Exists(key) Then
         Call Me.Remove(key)
     End If
-    pItems.Add value, CStr(key)
+    pItems.Add value, key
     pKeys.Add CStr(key)
+End Sub
+
+' SetValue: set or replace value for index
+Public Sub SetValue2(index As Long, value As Variant)
+    pItems.Remove (index)
+    pItems.Add value
 End Sub
 
 ' Exists
 Public Function Exists(key As String) As Boolean
     On Error Resume Next
     Dim v As Variant
-    vAssignment v, pItems(CStr(key))
+    vAssignment v, pItems(key)
     If err.Number = 0 Then
         Exists = True
     Else
@@ -51,10 +57,11 @@ Public Function Exists(key As String) As Boolean
 End Function
 
 ' GetValue (returns Empty if not exists)
-Public Function GetValue(key As String) As Variant
+Public Property Get GetValue(key As String) As Variant
+Attribute GetValue.VB_UserMemId = 0
     On Error Resume Next
     Dim v As Variant
-    vAssignment v, pItems(CStr(key))
+    vAssignment v, pItems(key)
     If err.Number = 0 Then
         vAssignment GetValue, v
     Else
@@ -63,17 +70,17 @@ Public Function GetValue(key As String) As Variant
         err.Clear
     End If
     On Error GoTo 0
-End Function
+End Property
 
 ' Remove key (no error if not exists)
 Public Sub Remove(key As String)
     On Error Resume Next
-    pItems.Remove CStr(key)
+    pItems.Remove key
     If err.Number = 0 Then
         ' remove key from pKeys
         Dim i As Long
         For i = 1 To pKeys.Count
-            If CStr(pKeys(i)) = CStr(key) Then
+            If CStr(pKeys(i)) = key Then
                 pKeys.Remove i
                 Exit For
             End If
@@ -83,6 +90,11 @@ Public Sub Remove(key As String)
     End If
     On Error GoTo 0
 End Sub
+
+' Keys: return a key given an index (read-only copy)
+Public Function key(index As Long) As String
+    key = pKeys(index)
+End Function
 
 ' Keys: return a Collection of keys (read-only copy)
 Public Function keys() As Collection
