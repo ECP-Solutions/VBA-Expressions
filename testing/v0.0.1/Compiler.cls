@@ -28,101 +28,6 @@ Private Function MakeNode(nodeType As String) As Map
     m.Add "type", nodeType
     Set MakeNode = m
 End Function
-' --- Helper: parse collapsed IDENT strings like "o.x", "a[3].b[2].c", "arr[1].length"
-Private Function ParseCollapsedIdentToNode(ByVal name As String) As Map
-    ' Returns a node representing the chain: Variable/Index/Member nodes
-    Dim parts() As String
-    Dim curNode As Map
-    Dim pos As Long, nlen As Long
-    Dim ch As String
-    Dim i As Long
-    Dim token As String
-    nlen = Len(name)
-    pos = 1
-
-    ' convenience: iterate and consume segments
-    Do While pos <= nlen
-        ch = Mid$(name, pos, 1)
-        If ch = "." Then
-            ' dot should not appear at start; skip
-            pos = pos + 1
-            GoTo ContinueLoop
-        End If
-        ' extract next segment (up to '.' or '[')
-        Dim nextDot As Long: nextDot = InStr(pos, name, ".")
-        Dim nextBr As Long: nextBr = InStr(pos, name, "[")
-        Dim seg As String
-        If nextBr = 0 And nextDot = 0 Then
-            seg = Mid$(name, pos)
-            pos = nlen + 1
-        ElseIf nextBr > 0 And (nextDot = 0 Or nextBr < nextDot) Then
-            seg = Mid$(name, pos, nextBr - pos)
-            ' we'll handle bracket after seg
-            pos = nextBr
-        Else
-            seg = Mid$(name, pos, nextDot - pos)
-            pos = nextDot
-        End If
-
-        If seg <> "" Then
-            If curNode Is Nothing Then
-                ' first segment => base variable
-                Dim v As Map: Set v = MakeNode("Variable")
-                v.SetValue "name", seg
-                Set curNode = v
-            Else
-                ' dot-access to a property name
-                Dim mem As Map: Set mem = MakeNode("Member")
-                mem.SetValue "base", curNode
-                mem.SetValue "prop", seg
-                Set curNode = mem
-            End If
-        End If
-
-        ' handle bracketed index(s) immediately following
-        Do While pos <= nlen And Mid$(name, pos, 1) = "["
-            Dim closePos As Long: closePos = InStr(pos, name, "]")
-            If closePos = 0 Then
-                ' malformed, bail with current node
-                Exit Do
-            End If
-            Dim idxStr As String: idxStr = Mid$(name, pos + 1, closePos - pos - 1)
-            ' build index expression node from literal or identifier (numbers expected from collapse)
-            Dim idxNode As Map: Set idxNode = ParseExprFromStringToNode(idxStr)
-            ' create Index node: base = curNode
-            Dim inNode As Map: Set inNode = MakeNode("Index")
-            inNode.SetValue "base", curNode
-            inNode.SetValue "index", idxNode
-            Set curNode = inNode
-            pos = closePos + 1
-        Loop
-
-        ' handle trailing dot (will be processed in next loop iteration)
-ContinueLoop:
-    Loop
-
-    ' Special-case '.length' when last part is 'length':
-    ' If last node is Member with prop "length", convert into Call to builtin ".__len__"
-    If Not curNode Is Nothing Then
-        If curNode.GetValue("type") = "Member" Then
-            If LCase$(CStr(curNode.GetValue("prop"))) = "length" Then
-                Dim baseNode As Map: Set baseNode = curNode.GetValue("base")
-                Dim lenCall As Map: Set lenCall = MakeNode("Call")
-                ' builtin callee as Variable ".__len__" (VM will treat this as builtin)
-                Dim builtinLen As Map: Set builtinLen = MakeNode("Variable")
-                builtinLen.SetValue "name", ".__len__"
-                lenCall.SetValue "callee", builtinLen
-                Dim args As New Collection
-                args.Add baseNode
-                lenCall.SetValue "args", args
-                Set ParseCollapsedIdentToNode = lenCall
-                Exit Function
-            End If
-        End If
-    End If
-
-    Set ParseCollapsedIdentToNode = curNode
-End Function
 
 ' ---------------------
 ' Utility: deep-clone a Collection of Maps or primitive values
@@ -931,8 +836,6 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
             Exit Function
         Case "IDENT"
             Dim name As String: name = v
-            Dim idxNode As Map
-            Dim idxExpr As Map
             If LCase$(name) = "true" Then
                 Dim bt As Map: Set bt = MakeNode("Literal")
                 bt.SetValue "value", True
@@ -1013,77 +916,6 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 End If
             End If
 
-'            Dim lenCall As Map
-'            Dim builtinLen As Map
-'            Dim al As Collection
-'            ' Handle collapsed identifiers with array/index and optional trailing ".length"
-'            ' Examples:
-'            '   a[3]
-'            '   a[3].length
-'            If InStr(name, "[") > 0 Then
-'                Dim base As String: base = left$(name, InStr(name, "[") - 1)
-'                ' Find matching closing bracket for the first '[' (supports nested brackets)
-'                Dim posOpen As Long: posOpen = InStr(name, "[")
-'                Dim posClose As Long: posClose = 0
-'                Dim depthBr As Long: depthBr = 0
-'                Dim iCh As Long
-'                For iCh = posOpen To Len(name)
-'                    Dim ch As String: ch = Mid$(name, iCh, 1)
-'                    If ch = "[" Then
-'                        depthBr = depthBr + 1
-'                    ElseIf ch = "]" Then
-'                        depthBr = depthBr - 1
-'                        If depthBr = 0 Then
-'                            posClose = iCh
-'                            Exit For
-'                        End If
-'                    End If
-'                Next iCh
-'                If posClose = 0 Then
-'                    err.Raise vbObjectError + 8002, "Compiler.ParsePrimary", "Invalid collapsed identifier: missing ']'"
-'                End If
-'                Dim idxStr As String: idxStr = Mid$(name, posOpen + 1, posClose - posOpen - 1)
-'                Dim idxNodeFromStr As Map: Set idxNodeFromStr = ParseExprFromStringToNode(idxStr)
-'                Dim inNode As Map: Set inNode = MakeNode("Index")
-'                Dim vn As Map: Set vn = MakeNode("Variable")
-'                vn.SetValue "name", base
-'                inNode.SetValue "base", vn
-'                inNode.SetValue "index", idxNodeFromStr
-'                idx = idx + 1
-'                ' If next tokens are ". length" treat as builtin length call on the indexed result.
-'                If idx < n Then
-'                    If types(idx) = "SYM" And vals(idx) = "." Then
-'                        If (idx + 1) < n And types(idx + 1) = "IDENT" And LCase$(CStr(vals(idx + 1))) = "length" Then
-'                            ' consume '.' and 'length'
-'                            idx = idx + 2
-'                            Set lenCall = MakeNode("Call")
-'                            ' set both 'callee' and 'name' for maximum compatibility with VM variants
-'                            Set builtinLen = MakeNode("Variable")
-'                            builtinLen.SetValue "name", ".__len__"
-'                            lenCall.SetValue "callee", builtinLen
-'                            lenCall.SetValue "name", ".__len__"
-'                            Set al = New Collection
-'                            al.Add inNode
-'                            lenCall.SetValue "args", al
-'                            Set ParsePrimaryNode = lenCall
-'                            Exit Function
-'                        End If
-'                    End If
-'                End If
-'                Set ParsePrimaryNode = inNode
-'                Exit Function
-'            End If
-'            ' if collapsed dotted/indexed form => convert into AST nodes
-'            If InStr(name, ".") Then
-'                Dim complexNode As Map
-'                Set complexNode = ParseCollapsedIdentToNode(name)
-'                If Not complexNode Is Nothing Then
-'                    idx = idx + 1
-'                    ' return currentNode (no postfix loop needed because we've already built the chain)
-'                    Set ParsePrimaryNode = complexNode
-'                    Exit Function
-'                End If
-'            End If
             Dim lenCall As Map
             Dim builtinLen As Map
             Dim al As Collection
@@ -1180,10 +1012,6 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                 ' attach any subsequent `.prop`, `[...]` or `(args)` tokens.
             End If
             
-            ' create initial variable node for an IDENT and then apply postfix operators:
-'            Set currentNode = MakeNode("Variable")
-'            currentNode.SetValue "name", name
-'            idx = idx + 1
             ' create initial variable node for an IDENT (only if collapsed form didn't create it)
             If currentNode Is Nothing Then
                 Set currentNode = MakeNode("Variable")
