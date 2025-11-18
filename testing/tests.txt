@@ -140,8 +140,8 @@ Expected: 10, 15
 Pass if: Member reading/writing works; assignment uses property write path.
 
 nested_member_index_LValue
-Script: o = { a: [ {v:1}, {v:2} ] } ; o.a[2].v = o.a[2].v + 5 ; print(o.a[2].v)
-Expected: 7
+Script: o = { a: [ {v:1}, {v:2} ] } ; o.a[2].v = o.a[2].v + 5 ; print(o.a[2].v + 2)
+Expected: 9
 Notes: verifies Member LValue resolution like a.b[3].c = value.
 
 method_call_on_member
