@@ -636,10 +636,116 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
         Case "Literal"
             vAssignment tmpResult, node.GetValue("value")
             GoTo exitfun
+'        Case "Variable"
+'            Dim vname As String: vname = CStr(node.GetValue("name"))
+'            Dim res As Map: Set res = ResolvePath(node, progScope)
+'            vAssignment tmpResult, res("value")
+'            GoTo exitfun
         Case "Variable"
             Dim vname As String: vname = CStr(node.GetValue("name"))
-            Dim res As Map: Set res = ResolvePath(node, progScope)
-            vAssignment tmpResult, res("value")
+            Dim res As Map: Set res = ResolvePath(node, progScope, False)
+            Dim vVal As Variant
+            On Error Resume Next
+            If Not res Is Nothing And res.Exists("value") Then
+                vAssignment vVal, res("value")
+            Else
+                ' Try direct scope lookup as a defensive fallback
+                vAssignment vVal, progScope.GetValue(vname)
+            End If
+            On Error GoTo 0
+        
+            ' If scope contains a non-empty value, return it — this covers closures stored as Map/AST nodes.
+            If Not IsEmpty(vVal) Then
+                If TypeName(vVal) = "Map" Then
+                    On Error Resume Next
+                    Dim maybeType As Variant
+                    maybeType = vVal.GetValue("type")
+                    On Error GoTo 0
+                    If Not IsEmpty(maybeType) Then
+                        Dim tt As String: tt = CStr(maybeType)
+                        If tt = "FuncLiteral" Or tt = "Function" Or tt = "Closure" Or tt = "AnonFunction" Then
+                            vAssignment tmpResult, vVal
+                            GoTo exitfun
+                        End If
+                    End If
+                End If
+                ' Not necessarily a function-like Map — still return stored value.
+                vAssignment tmpResult, vVal
+                GoTo exitfun
+            End If
+        
+            ' Not found in scope or empty -> fallback to named compiled function table (gFuncTable)
+            On Error Resume Next
+            If GLOBALS_.gFuncTable.Exists(vname) Then
+                Dim fIdxVal As Variant: fIdxVal = GLOBALS_.gFuncTable.GetValue(vname)
+                On Error GoTo 0
+                If Not IsEmpty(fIdxVal) Then
+                    ' funcIdx is expected to be available in the containing function scope (follow your convention)
+                    funcIdx = CLng(fIdxVal)
+        
+                    ' Build a Closure map with the shape CallClosure expects:
+                    Dim closureMap As New Map
+                    closureMap.Add "type", "Closure"
+        
+                    ' params: convert stored gFuncParams (likely an array) into a Collection
+                    Dim paramsCol As Collection
+                    Set paramsCol = New Collection
+                    If GLOBALS_.gFuncParams.Exists(vname) Then
+                        Dim paVar As Variant: paVar = GLOBALS_.gFuncParams.GetValue(vname)
+                        If IsArray(paVar) Then
+                            If ArrayIsInit(paVar) Then
+                                For pi = LBound(paVar) To UBound(paVar)
+                                    paramsCol.Add CStr(paVar(pi))
+                                Next pi
+                            Else
+                                paramsCol.Add vbNullString
+                            End If
+                        ElseIf TypeName(paVar) = "Collection" Then
+                            Dim it As Variant
+                            For Each it In paVar
+                                paramsCol.Add it
+                            Next it
+                        End If
+                    End If
+                    closureMap.SetValue "params", paramsCol
+        
+                    ' body and env come from gPrograms(funcIdx)
+                    Dim pinfo As Variant
+                    On Error Resume Next
+                    pinfo = GLOBALS_.gPrograms(funcIdx)
+                    If err.Number <> 0 Then
+                        err.Clear
+                        ' fallback: no program info — return Empty
+                        EvalExprNode = Empty
+                        Exit Function
+                    End If
+                    On Error GoTo 0
+        
+                    ' pinfo layout: Array(name, stmtsCollection, rawScopeCollection)
+                    Dim bodyStmts As Collection
+                    Set bodyStmts = pinfo(1)
+                    closureMap.SetValue "body", bodyStmts
+        
+                    ' env: create ScopeStack and LoadRaw with stored raw scope (so closure has env object)
+                    Dim envScope As ScopeStack
+                    Set envScope = New ScopeStack
+                    envScope.LoadRawByRef progScope.RawByRef
+                    Set pinfo(2) = envScope.RawByRef
+                    closureMap.SetValue "env", envScope
+        
+                    ' optionally store a name/funcIdx for debugging
+                    closureMap.SetValue "name", vname
+                    closureMap.SetValue "funcIdx", funcIdx
+        
+                    vAssignment tmpResult, closureMap
+                    GoTo exitfun
+                End If
+            End If
+            On Error GoTo 0
+        
+            ' Not found — log and return Empty
+            If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vname & "' is undefined or not callable (returned Empty)."
+            vAssignment tmpResult, Empty
             GoTo exitfun
         Case "Call"
             ' Call can be either:
