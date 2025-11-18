@@ -137,6 +137,7 @@ Public Sub SetValue(key As String, val As Variant)
         If pFrames(i).Exists(key) Then
             pFrames(i).SetValue key, val
             Exit Sub
+        
         End If
     Next i
     ' not found -> set in top frame
