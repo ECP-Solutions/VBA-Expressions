@@ -7,6 +7,9 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+' ---------------------
+' VM class
+' ---------------------
 ' Class Module: VM (AST executor)
 Option Explicit
 Private Const VTP_MAX_DEPTH As Long = 8    ' safety depth limit
@@ -45,8 +48,10 @@ Public Sub RunProgramByIndex(idx As Long)
     Dim progName As String: progName = p(0)
     Dim stmts As Collection: Set stmts = p(1)
     Dim rawScope As Collection: Set rawScope = p(2)
+    Dim optionBase As Long: optionBase = IIf(UBound(p) >= 3, p(3), 1)
     Dim progScope As New ScopeStack
     progScope.LoadRaw rawScope
+    progScope.SetValue "__option_base", optionBase
     progScope.Push
     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "RUN Program: " & progName
     Dim i As Long
@@ -93,16 +98,6 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
             HandleAssignment left, rval, progScope
             If left.GetValue("type") = "Variable" Then
                 Dim lName As String: lName = left.GetValue("name")
-                If InStr(1, lName, ".") Then
-                    Dim tLeft As Map
-                    Dim tmpPropMap() As String
-                    tmpPropMap() = Split(lName, ".")
-                    Set tLeft = progScope.GetValue(tmpPropMap(LBound(tmpPropMap)))
-                    For i = LBound(tmpPropMap) + 1 To UBound(tmpPropMap) - 1
-                        Set tLeft = tLeft.GetValue(tmpPropMap(i))
-                    Next i
-                    tLeft.SetValue tmpPropMap(UBound(tmpPropMap)), rval
-                End If
             End If
             ExecuteStmtNode = ""
             Exit Function
@@ -162,10 +157,11 @@ Private Sub AssignToArray(arrName As String, idxV As Variant, val As Variant, pr
     Dim pos As Long
     Dim ub As Long
     Dim lb As Long
-
+    Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
+    
     arr = progScope.GetValue(arrName)
     pos = CLng(idxV)
-    If pos < 1 Then
+    If pos < optionBase Then
         err.Raise vbObjectError + 5001, "VM.AssignToArray", "Invalid array index (must be >=1)"
     End If
     If Not IsArray(arr) Then
@@ -184,12 +180,202 @@ Private Sub AssignToArray(arrName As String, idxV As Variant, val As Variant, pr
     Else
         lb = LBound(arr)
         If pos > (ub - lb + 1) Then
-            ReDim Preserve arr(lb To lb + pos - 1)
+            ReDim Preserve arr(lb To lb + (pos - optionBase))
         End If
     End If
-    arr(LBound(arr) + pos - 1) = val
+    arr(LBound(arr) + (pos - optionBase)) = val
     progScope.SetValue arrName, arr
 End Sub
+
+Private Function EvalMemberNode(node As Map, progScope As ScopeStack) As Variant
+    If Not node.Exists("prop") And Not node.Exists("property") Then err.Raise vbObjectError + 5010, "VM.EvalMemberNode", "Missing prop/property in Member node"
+    Dim propKey As String: propKey = IIf(node.Exists("prop"), "prop", "property")  ' Twist: auto-detect
+    Dim prop As String: prop = node.GetValue(propKey)
+    Dim baseVal As Variant
+    vAssignment baseVal, EvalExprNode(node.GetValue("base"), progScope)
+    If TypeName(baseVal) <> "Map" Then err.Raise vbObjectError + 5007, "VM.EvalMemberNode", "Cannot access property on non-map"
+    vAssignment EvalMemberNode, baseVal.GetValue(prop)  ' Ensure this line is present!
+End Function
+
+Private Function EvalIndexNode(node As Map, progScope As ScopeStack) As Variant
+    If Not node.Exists("index") Then err.Raise vbObjectError + 5011, "VM.EvalIndexNode", "Missing index in Index node"
+    Dim baseVal As Variant
+    vAssignment baseVal, EvalExprNode(node.GetValue("base"), progScope)
+    Dim idxV As Variant: vAssignment idxV, EvalExprNode(node.GetValue("index"), progScope)
+    Dim pos As Long: pos = CLng(idxV)
+    Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
+    If pos < optionBase Then err.Raise vbObjectError + 5001, "VM.EvalIndexNode", "Invalid index (must >= base)"
+    If IsArray(baseVal) Then
+        Dim lb As Long: lb = LBound(baseVal)
+        Dim ub As Long: ub = UBound(baseVal)
+        Dim adjustedPos As Long: adjustedPos = lb + (pos - optionBase)
+        If adjustedPos > ub Then err.Raise vbObjectError + 5005, "VM.EvalIndexNode", "Index out of bounds"
+        vAssignment EvalIndexNode, baseVal(adjustedPos)
+    ElseIf TypeName(baseVal) = "Map" Then
+        vAssignment EvalIndexNode, baseVal.GetValue(pos)
+    Else
+        err.Raise vbObjectError + 5006, "VM.EvalIndexNode", "Cannot index non-array/non-map"
+    End If
+End Function
+
+Private Function EvalArrayNode(node As Map, progScope As ScopeStack) As Variant
+    Dim items As Collection: Set items = node.GetValue("items")
+    Dim arr As Variant
+    Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
+    If items Is Nothing Or items.Count = 0 Then
+        ReDim arr(optionBase To optionBase)
+    Else
+        ReDim arr(optionBase To optionBase + items.Count - 1)
+        Dim ii As Long
+        For ii = 1 To items.Count
+            vAssignment arr(optionBase + ii - 1), EvalExprNode(items(ii), progScope)
+        Next ii
+    End If
+    vAssignment EvalArrayNode, arr
+End Function
+
+Private Function ParsePath(ByVal path As String) As Collection
+    Dim col As New Collection
+    Dim pos As Long: pos = 1
+    Dim lenP As Long: lenP = Len(path)
+    Dim currentPart As String
+    While pos <= lenP
+        Dim ch As String: ch = Mid(path, pos, 1)
+        If ch = "." Then
+            If currentPart <> "" Then col.Add currentPart
+            currentPart = ""
+            pos = pos + 1
+        ElseIf ch = "[" Then
+            If currentPart <> "" Then col.Add currentPart
+            currentPart = ""
+            Dim startB As Long: startB = pos
+            pos = pos + 1
+            While pos <= lenP And Mid(path, pos, 1) <> "]"
+                pos = pos + 1
+            Wend
+            If pos > lenP Then err.Raise vbObjectError + 5003, "VM.ParsePath", "Unmatched bracket in path"
+            currentPart = Mid(path, startB, pos - startB + 1)
+            col.Add currentPart
+            currentPart = ""
+            pos = pos + 1
+        Else
+            currentPart = currentPart & ch
+            pos = pos + 1
+        End If
+    Wend
+    If currentPart <> "" Then col.Add currentPart
+    Set ParsePath = col
+End Function
+
+Private Function ResolvePath(node As Map, progScope As ScopeStack, Optional forAssign As Boolean = False) As Map
+    Dim res As New Map
+    Dim tp As String: tp = node.GetValue("type")
+    If tp = "Variable" Then
+        If (InStr(node.GetValue("name"), ".") > 0 Or InStr(node.GetValue("name"), "[") > 0) Then
+            ' Fallback for flat names (if Compiler didn't nest)
+            Dim path As String: path = node.GetValue("name")
+            Dim parts As Collection: Set parts = ParsePath(path) ' Add ParsePath from previous patch
+            Dim current As Variant
+            vAssignment current, progScope.GetValue(CStr(parts(1)))
+            Dim ii As Long
+            For ii = 2 To parts.Count - IIf(forAssign, 1, 0)
+                Dim part As String: part = parts(ii)
+                If left(part, 1) = "[" Then
+                    Dim indexStr As String: indexStr = Mid(part, 2, Len(part) - 2)
+                    Dim indexV As Variant: indexV = EvalVBExpressionWithScope(indexStr, progScope) ' Twist: use VBEXPR for fallback computed
+                    current = GetIndexedValue(current, indexV, progScope)
+                Else
+                    If TypeName(current) = "Map" Then
+                        vAssignment current, current.GetValue(part)
+                    Else
+                        err.Raise vbObjectError + 5007, "VM.ResolvePath", "Cannot access property on non-map"
+                    End If
+                End If
+            Next ii
+            If forAssign Then
+                res.SetValue "container", current
+                res.SetValue "key", parts(parts.Count)
+                res.SetValue "kind", IIf(left(parts(parts.Count), 1) = "[", "index", "prop")
+            Else
+                res.SetValue "value", current
+            End If
+        Else
+            If forAssign Then
+                res.SetValue "container", progScope
+                res.SetValue "key", node.GetValue("name")
+                res.SetValue "kind", "scopeVar"
+            Else
+                res.SetValue "value", progScope.GetValue(node.GetValue("name"))
+            End If
+        End If
+    Else
+        ' Nested nodes (preferred)
+        Select Case tp
+            Case "Member"
+                Dim baseRes As Map: Set baseRes = ResolvePath(node.GetValue("base"), progScope, forAssign)
+                If forAssign Then
+                    res.SetValue "container", baseRes("container")
+                    res.SetValue "key", node.GetValue("prop")
+                    res.SetValue "kind", "prop"
+                    Dim pKey As String
+                    Dim pKind As String
+                    ' carry forward parent property/key info if present on the base resolution
+                    If baseRes.Exists("key") Then
+                        pKey = baseRes("key")
+                        res.SetValue "parentKey", pKey
+                    End If
+                    If baseRes.Exists("kind") Then
+                        pKind = baseRes("kind")
+                        res.SetValue "parentKind", pKind
+                    End If
+                    res.SetValue "parentObj", baseRes
+                Else
+                    res.SetValue "value", EvalMemberNode(node, progScope)
+                End If
+            Case "Index"
+                Dim baseRes2 As Map: Set baseRes2 = ResolvePath(node.GetValue("base"), progScope, forAssign)
+                If forAssign Then
+                    ' We need to preserve the parent container _and_ the parent property name (if any)
+                    ' so that assignments to an indexed property (e.g. o.a[2]) can write back correctly.
+                    res.SetValue "container", baseRes2("container")
+                    res.SetValue "key", EvalExprNode(node.GetValue("index"), progScope)
+                    res.SetValue "kind", "index"
+                    ' carry forward parent property/key info if present on the base resolution
+                    If baseRes2.Exists("key") Then res.SetValue "parentKey", baseRes2("key")
+                    If baseRes2.Exists("kind") Then res.SetValue "parentKind", baseRes2("kind")
+                    res.SetValue "parentObj", baseRes2
+                Else
+                    res.SetValue "value", EvalIndexNode(node, progScope)
+                End If
+        End Select
+    End If
+    Set ResolvePath = res
+End Function
+
+Private Function GetIndexedValue(baseVal As Variant, idxV As Variant, progScope As ScopeStack) As Variant
+    Dim pos As Long: pos = CLng(idxV)
+    Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
+    If pos < optionBase Then err.Raise vbObjectError + 5001, "VM.GetIndexedValue", "Invalid index"
+    If IsArray(baseVal) Then
+        Dim lb As Long: lb = LBound(baseVal)
+        Dim adjustedPos As Long: adjustedPos = lb + (pos - optionBase)
+        If adjustedPos > UBound(baseVal) Then err.Raise vbObjectError + 5005, "VM.GetIndexedValue", "Index out of bounds"
+        vAssignment GetIndexedValue, baseVal(adjustedPos)
+    ElseIf TypeName(baseVal) = "Map" Then
+        vAssignment GetIndexedValue, baseVal.GetValue(pos)
+    Else
+        err.Raise vbObjectError + 5006, "VM.GetIndexedValue", "Cannot index non-array/non-map"
+    End If
+End Function
+
+Private Function ResolveLValue(node As Map, progScope As ScopeStack) As Map
+    Set ResolveLValue = ResolvePath(node, progScope, True)
+    If node.GetValue("type") = "Index" Then
+        If node.GetValue("index").GetValue("type") <> "Literal" Then
+            ResolveLValue.Add "computed", True ' Twist: flag for lazy
+        End If
+    End If
+End Function
 
 ' ---------------------
 ' ExecIfNode: Evaluate condition, then execute proper block
@@ -438,182 +624,23 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             ' Return Map object (as Variant holding the object)
             vAssignment tmpResult, om
             GoTo exitfun
+        Case "Member"
+            vAssignment tmpResult, EvalMemberNode(node, progScope)
+            GoTo exitfun
+        Case "Index"
+            vAssignment tmpResult, EvalIndexNode(node, progScope)
+            GoTo exitfun
+        Case "Array"
+            vAssignment tmpResult, EvalArrayNode(node, progScope)
+            GoTo exitfun
         Case "Literal"
             vAssignment tmpResult, node.GetValue("value")
             GoTo exitfun
         Case "Variable"
-            ' Robust variable resolution:
-            '  - return actual value from scope (covers closures stored as Map AST nodes)
-            '  - if scope has no value, fallback to named functions table (gFuncTable)
-            '  - optional fallback to gFuncObjects registry
             Dim vname As String: vname = CStr(node.GetValue("name"))
-            Dim vVal As Variant
-            vAssignment vVal, progScope.GetValue(vname)
-
-            ' If scope contains a non-empty value, return it — this covers closures
-            ' stored as Map/AST nodes (FuncLiteral/Closure/etc.).
-            If Not IsEmpty(vVal) Then
-                ' If it's a Map and looks like a function node, return as callable
-                On Error Resume Next
-                If TypeName(vVal) = "Map" Then
-                    Dim maybeType As Variant
-                    maybeType = Empty
-                    On Error Resume Next
-                    maybeType = vVal.GetValue("type")
-                    On Error GoTo 0
-                    If Not IsEmpty(maybeType) Then
-                        Dim tt As String: tt = CStr(maybeType)
-                        ' Common names for function-like AST nodes / closures:
-                        If tt = "FuncLiteral" Or tt = "Function" Or tt = "Closure" Or tt = "AnonFunction" Then
-                            vAssignment tmpResult, vVal
-                            GoTo exitfun
-                        End If
-                    End If
-                End If
-                ' Not necessarily a function-like Map — still return stored value.
-                vAssignment tmpResult, vVal
-                GoTo exitfun
-            End If
-
-            ' Not in scope (or Empty). Fallback: named compiled function table.
-            On Error Resume Next
-            If GLOBALS_.gFuncTable.Exists(vname) Then
-                Dim fIdxVal As Variant: fIdxVal = GLOBALS_.gFuncTable.GetValue(vname)
-                On Error GoTo 0
-                If Not IsEmpty(fIdxVal) Then
-                    funcIdx = CLng(fIdxVal)
-
-                    ' Build a Closure map with the shape CallClosure expects:
-                    ' "type" = "Closure", "params" = Collection, "body" = Collection, "env" = ScopeStack
-                    Dim closureMap As New Map
-                    closureMap.Add "type", "Closure"
-
-                    ' params: convert stored gFuncParams (likely an array) into a Collection
-                    Dim paramsCol As Collection
-                    Set paramsCol = New Collection
-                    If GLOBALS_.gFuncParams.Exists(vname) Then
-                        Dim paVar As Variant: paVar = GLOBALS_.gFuncParams.GetValue(vname)
-                        If IsArray(paVar) Then
-                            If ArrayIsInit(paVar) Then
-                                For pi = LBound(paVar) To UBound(paVar)
-                                    paramsCol.Add CStr(paVar(pi))
-                                Next pi
-                            Else
-                                paramsCol.Add vbNullString
-                            End If
-                        ElseIf TypeName(paVar) = "Collection" Then
-                            ' already a collection — copy it
-                            Dim it As Variant
-                            For Each it In paVar
-                                paramsCol.Add it
-                            Next it
-                        End If
-                    End If
-                    closureMap.SetValue "params", paramsCol
-
-                    ' body and env come from gPrograms(funcIdx)
-                    Dim pinfo As Variant
-                    On Error Resume Next
-                    pinfo = GLOBALS_.gPrograms(funcIdx)
-                    If err.Number <> 0 Then
-                        err.Clear
-                        ' fallback: no program info — return Empty
-                        EvalExprNode = Empty
-                        Exit Function
-                    End If
-                    On Error GoTo 0
-
-                    ' pinfo layout: Array(name, stmtsCollection, rawScopeCollection)
-                    Dim bodyStmts As Collection
-                    Set bodyStmts = pinfo(1)
-                    closureMap.SetValue "body", bodyStmts
-
-                    ' env: create ScopeStack and LoadRaw with stored raw scope (so closure has env object)
-                    Dim envScope As ScopeStack
-                    Set envScope = New ScopeStack
-                    envScope.LoadRawByRef progScope.RawByRef
-                    Set pinfo(2) = envScope.RawByRef
-                    closureMap.SetValue "env", envScope
-
-                    ' optionally store a name/funcIdx for debugging
-                    closureMap.SetValue "name", vname
-                    closureMap.SetValue "funcIdx", funcIdx
-
-                    vAssignment tmpResult, closureMap
-                    GoTo exitfun
-                End If
-            End If
-            On Error GoTo 0
-
-            ' Defensive fallback: optional function-objects registry (NOT IMPLEMENTED YET).
-'            On Error Resume Next
-'            If Not (gFuncObjects Is Nothing) Then
-'                If gFuncObjects.Exists(vName) Then
-'                    EvalExprNode = gFuncObjects.GetValue(vName)
-'                    On Error GoTo 0
-'                    GoTo exitfun
-'                End If
-'            End If
-'            On Error GoTo 0
-
-            ' Not found — log to runtime log and return Empty
-            If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vname & "' is undefined or not callable (returned Empty)."
-            vAssignment tmpResult, Empty
+            Dim res As Map: Set res = ResolvePath(node, progScope)
+            vAssignment tmpResult, res("value")
             GoTo exitfun
-        Case "Member"
-            ' Member(base, prop) — evaluate base, then property access
-            Set baseExpr = node.GetValue("base")
-            Dim propStr As String: propStr = CStr(node.GetValue("prop"))
-            Dim baseEvaluated As Variant
-            vAssignment baseEvaluated, EvalExprNode(baseExpr, progScope)
-            ' special-case array length: if prop == "length" and base is array, return length
-            If propStr = "length" Then
-                If IsArray(baseEvaluated) Then
-                    Dim ub2 As Long
-                    ub2 = UBound(baseEvaluated)
-                    If ub2 < LBound(baseEvaluated) Then
-                        vAssignment tmpResult, 0
-                    Else
-                        vAssignment tmpResult, ub2 - LBound(baseEvaluated) + 1
-                    End If
-                    GoTo exitfun
-                End If
-            End If
-            ' if base is Map, return stored property
-            If TypeName(baseEvaluated) = "Map" Then
-                Dim bm As Map: Set bm = baseEvaluated
-                vAssignment tmpResult, bm.GetValue(propStr)
-                GoTo exitfun
-            End If
-            ' otherwise no property -> Empty
-            vAssignment tmpResult, Empty
-            GoTo exitfun
-        Case "Array"
-            Set items = node.GetValue("items")
-            If items.Count = 0 Then
-                vAssignment tmpResult, Array()
-                GoTo exitfun
-            End If
-            Dim a() As Variant
-            ReDim a(1 To items.Count)
-            Dim ii As Long
-            For ii = 1 To items.Count
-                vAssignment a(ii), EvalExprNode(items(ii), progScope)
-            Next ii
-            vAssignment tmpResult, a
-            GoTo exitfun
-        Case "Index"
-            Dim base As Map: Set base = node.GetValue("base")
-            Dim idxNode As Map: Set idxNode = node.GetValue("index")
-            If base.GetValue("type") = "Variable" Then
-                Dim arr As Variant: arr = progScope.GetValue(base.GetValue("name"))
-                If Not IsArray(arr) Then vAssignment tmpResult, Empty: GoTo exitfun
-                Dim pos As Long: pos = CLng(EvalExprNode(idxNode, progScope))
-                vAssignment tmpResult, arr(LBound(arr) + pos - 1)
-                GoTo exitfun
-            Else
-                vAssignment tmpResult, Empty: GoTo exitfun
-            End If
         Case "Call"
             ' Call can be either:
             '  - Call with "name" (string) and args (legacy)
@@ -885,7 +912,6 @@ Private Function ValueToStringWithCtx(v As Variant, visited As Collection, depth
         ValueToStringWithCtx = "..."
         Exit Function
     End If
-
     ' Null / Empty
     If IsNull(v) Then
         ValueToStringWithCtx = "NULL": Exit Function
@@ -1269,332 +1295,92 @@ ErrHandler:
      CallClosure = Empty
  End Function
  ' ----------------- LValue resolution and helpers -----------------
- Function ResolveLValue(lvalueNode As Map, progScope As ScopeStack) As Variant
-     Dim result() As Variant
-     If lvalueNode Is Nothing Then
-         err.Raise vbObjectError + 9000, "VM.ResolveLValue", "Nil lvalue node"
-     End If
 
-     Dim t As String: t = ""
-     If lvalueNode.Exists("type") Then t = CStr(lvalueNode.GetValue("type"))
-     Dim idxVal2 As Variant
-     
-     Select Case t
-     Case "Variable"
-         Dim vname As String: vname = CStr(lvalueNode.GetValue("name"))
-         ReDim result(0 To 3)
-         result(0) = "scopeVar"
-         result(1) = vname
-         result(2) = vname
-         ResolveLValue = result
-         Exit Function
-
-     Case "Member"
-        ' member: compute/evaluate base container, ensure it is a Map if needed,
-        ' and return ("mapObj", mapRef, propertyName)
-         Dim propName As String
-         If lvalueNode.Exists("name") Then
-             propName = CStr(lvalueNode.GetValue("name"))
-         ElseIf lvalueNode.Exists("property") Then
-             propName = CStr(lvalueNode.GetValue("property"))
-         Else
-             err.Raise vbObjectError + 9001, "VM.ResolveLValue", "Member node missing property name"
-         End If
-
-         Dim baseNode As Map: Set baseNode = lvalueNode.GetValue("base")
-        ' If base is a bare variable and empty, create Map and store it into the scope so further member sets work
-        ' Special-case: if the base is an Index (array-element), we must obtain the actual
-        ' element *stored in the array* (not a temporary value) so member writes mutate the stored element.
-         If Not baseNode Is Nothing Then
-             Dim baseTypeAhead As String
-             If baseNode.Exists("type") Then baseTypeAhead = CStr(baseNode.GetValue("type")) Else baseTypeAhead = ""
-             If baseTypeAhead = "Index" Then
-                 ' Resolve the index target to the actual element Map (creating it if necessary)
-                 Dim elemMap As Map: Set elemMap = GetElementMapFromIndexNode(baseNode, progScope)
-                 If elemMap Is Nothing Then
-                     err.Raise vbObjectError + 9020, "VM.ResolveLValue", "Index element not available for member assignment"
-                 End If
-                 ' Build a 4-element descriptor so HandleAssignment will find mapObj at resolved(1) and prop at resolved(3)
-                 Dim outArrSpecial As Variant: outArrSpecial = Array("mapObj", elemMap, "", propName)
-                 ResolveLValue = outArrSpecial
-                 Exit Function
-             End If
-             Dim baseType As String
-             If baseNode.Exists("type") Then baseType = CStr(baseNode.GetValue("type")) Else baseType = ""
-             If baseType = "Variable" Then
-                 Dim baseVarName As String: baseVarName = CStr(baseNode.GetValue("name"))
-                 Dim baseVal As Variant: baseVal = progScope.GetValue(baseVarName)
-                 If IsEmpty(baseVal) Then
-                     Dim newMap As Map: Set newMap = MakeNode("Map")
-                     progScope.SetValue baseVarName, newMap
-                     baseVal = newMap
-                 End If
-                 If TypeName(baseVal) = "Map" Then
-                     ReDim result(0 To 3)
-                     result(0) = "mapObj"
-                     vAssignment result(1), baseVal
-                     vAssignment result(2), propName
-                     ResolveLValue = result
-                     Exit Function
-                 Else
-                     err.Raise vbObjectError + 9002, "VM.ResolveLValue", "Cannot assign member on non-object base"
-                 End If
-             Else
-                 Dim baseVal2 As Variant: baseVal2 = EvalExprNode(baseNode, progScope)
-                 If TypeName(baseVal2) = "Map" Then
-                     ReDim result(0 To 3)
-                     result(0) = "mapObj"
-                     vAssignment result(1), baseVal2
-                     result(2) = propName
-                     ResolveLValue = result
-                     Exit Function
-                 Else
-                     err.Raise vbObjectError + 9003, "VM.ResolveLValue", "Cannot assign member on non-object base"
-                 End If
-             End If
-         Else
-             err.Raise vbObjectError + 9004, "VM.ResolveLValue", "Member node missing base"
-         End If
-
-     Case "Index"
-         Dim idxNode As Map: Set idxNode = lvalueNode.GetValue("index")
-         Dim baseIdxNode As Map: Set baseIdxNode = lvalueNode.GetValue("base")
-         If baseIdxNode Is Nothing Then
-             err.Raise vbObjectError + 9005, "VM.ResolveLValue", "Index node missing base"
-         End If
-         Dim baseIdxType As String: baseIdxType = ""
-         If baseIdxNode.Exists("type") Then baseIdxType = CStr(baseIdxNode.GetValue("type"))
-
-         If baseIdxType = "Variable" Then
-             Dim arrVarName As String: arrVarName = CStr(baseIdxNode.GetValue("name"))
-             Dim arrVal As Variant: arrVal = progScope.GetValue(arrVarName)
-             If IsEmpty(arrVal) Then
-                 Dim emptyArr() As Variant
-                 ReDim emptyArr(0 To 0)
-                 progScope.SetValue arrVarName, emptyArr
-                 arrVal = progScope.GetValue(arrVarName)
-             End If
-             Dim idxVal As Variant: idxVal = EvalExprNode(idxNode, progScope)
-             If Not IsNumeric(idxVal) Then err.Raise vbObjectError + 9006, "VM.ResolveLValue", "Array index must be numeric"
-             ReDim result(0 To 3)
-             result(0) = "arrayInScope"
-             result(1) = arrVarName
-             result(2) = CLng(idxVal)
-             ResolveLValue = result
-             Exit Function
-        Else
-            ' base is an expression (e.g., a.prop[...]) — if base is Member(baseObj, propName)
-            ' we want the parent map object and property name so we can assign into the array stored in the property.
-            If baseIdxNode.Exists("type") And CStr(baseIdxNode.GetValue("type")) = "Member" Then
-                Dim parentNode As Map: Set parentNode = baseIdxNode.GetValue("base")
-                If parentNode Is Nothing Then err.Raise vbObjectError + 9015, "VM.ResolveLValue", "Member base missing"
-                ' Evaluate parent object (should yield the Map that holds the property)
-                Dim parentVal As Variant: parentVal = EvalExprNode(parentNode, progScope)
-                If IsEmpty(parentVal) Then
-                    ' If the parent is a variable and is empty, create a Map to hold properties (match other behaviors)
-                    If parentNode.Exists("type") And CStr(parentNode.GetValue("type")) = "Variable" Then
-                        Dim newParentMap As Map: Set newParentMap = MakeNode("Map")
-                        progScope.SetValue CStr(parentNode.GetValue("name")), newParentMap
-                        parentVal = newParentMap
-                    End If
-                End If
-                If TypeName(parentVal) <> "Map" Then
-                    err.Raise vbObjectError + 9016, "VM.ResolveLValue", "Parent of member index must be an object (Map)"
-                End If
-                Dim innerPropName As String: innerPropName = CStr(baseIdxNode.GetValue("name"))
-                idxVal2 = EvalExprNode(idxNode, progScope)
-                If Not IsNumeric(idxVal2) Then err.Raise vbObjectError + 9007, "VM.ResolveLValue", "Array index must be numeric"
-                result = Array("arrayInMap", parentVal, CLng(idxVal2), innerPropName)
-                ResolveLValue = result
-                Exit Function
-            Else
-                ' fallback for generic expression bases: evaluate base to a value
-                Dim baseVal3 As Variant: baseVal3 = EvalExprNode(baseIdxNode, progScope)
-                idxVal2 = EvalExprNode(idxNode, progScope)
-                If Not IsNumeric(idxVal2) Then err.Raise vbObjectError + 9007, "VM.ResolveLValue", "Array index must be numeric"
-                If TypeName(baseVal3) = "Map" Then
-                    ' indexing a Map directly is not supported for numeric indices
-                    err.Raise vbObjectError + 9008, "VM.ResolveLValue", "Cannot assign indexed member on non-variable/map base"
-                ElseIf IsArray(baseVal3) Then
-                    err.Raise vbObjectError + 9009, "VM.ResolveLValue", "Cannot assign into temporary array expression"
-                Else
-                    err.Raise vbObjectError + 9010, "VM.ResolveLValue", "Unsupported index base for assignment"
-                End If
-            End If
-         End If
-
-     Case Else
-         err.Raise vbObjectError + 9011, "VM.ResolveLValue", "Unsupported LValue node type: " & t
-     End Select
-
- End Function
-
- Sub HandleAssignment(lhs As Map, rhsValue As Variant, progScope As ScopeStack)
-'     Dim resolved As Variant
-'     On Error GoTo HandlerErr
-'     resolved = ResolveLValue(lhs, progScope)
-'     Dim kind As String: kind = CStr(resolved(0))
-'     Select Case kind
-'     Case "scopeVar"
-'         Dim vname As String: vname = CStr(resolved(1))
-'         progScope.SetValue vname, rhsValue
-'     Case "mapObj"
-'         Dim mapObj As Map: Set mapObj = resolved(1)
-'         Dim propName2 As String: propName2 = CStr(resolved(2))
-'         mapObj.SetValue propName2, rhsValue
-'     Case "arrayInScope"
-'         Dim arrName As String: arrName = CStr(resolved(1))
-'         Dim idx As Long: idx = CLng(resolved(2))
-'         AssignToArrayByName arrName, idx, rhsValue, progScope
-'     Case "arrayInMap"
-'         If UBound(resolved) >= 4 Then
-'             Dim mapObj2 As Map: Set mapObj2 = resolved(1)
-'             Dim idx2 As Long: idx2 = CLng(resolved(2))
-'             Dim propName3 As String: propName3 = CStr(resolved(3))
-'             Dim arrVal As Variant: arrVal = mapObj2.GetValue(propName3)
-'             If IsEmpty(arrVal) Then
-'                 Dim newA() As Variant
-'                 ReDim newA(1 To 0)
-'                 arrVal = newA
-'             End If
-'             Call AssignToArrayValueInPlace(arrVal, idx2, rhsValue)
-'             mapObj2.SetValue propName3, arrVal
-'         Else
-'             err.Raise vbObjectError + 9110, "VM.HandleAssignment", "Malformed ResolveLValue arrayInMap result"
-'         End If
-'     Case Else
-'         err.Raise vbObjectError + 9111, "VM.HandleAssignment", "Unhandled resolved LValue kind: " & kind
-'     End Select
-'     Exit Sub
-    Dim resolved As Variant
-    Dim propName2 As String
-    On Error GoTo HandlerErr
-    resolved = ResolveLValue(lhs, progScope)
-    ' Support both returned shapes: 3-element (standard) or 4-element (arrayInMap with prop name)
-    Dim kind As String: kind = CStr(resolved(0))
-    Select Case kind
-    Case "scopeVar"
-        Dim vname As String: vname = CStr(resolved(1))
-        ' If the scope variable name contains dots (e.g. "o.a") — try to resolve to a parent Map in scope.
-        If InStr(vname, ".") > 0 Then
-            Dim curName As String: curName = vname
-            Dim done As Boolean: done = False
-            Do While InStr(curName, ".") > 0 And Not done
-                Dim lastDot As Long: lastDot = InStrRev(curName, ".")
-                Dim parentName As String: parentName = left$(curName, lastDot - 1)
-                Dim propName As String: propName = Mid$(curName, lastDot + 1)
-                Dim parentVal As Variant: vAssignment parentVal, progScope.GetValue(parentName)
-                If Not IsEmpty(parentVal) Then
-                    If TypeName(parentVal) = "Map" Then
-                        ' write into parentVal[propName]
-                        parentVal.SetValue propName, rhsValue
-                        done = True
+Private Sub HandleAssignment(left As Map, ByVal rval As Variant, progScope As ScopeStack)
+    Dim lval As Map: Set lval = ResolveLValue(left, progScope)
+    Dim key As Variant: vAssignment key, lval("key")
+    If lval.Exists("computed") Then vAssignment key, EvalExprNode(left.GetValue("index"), progScope) ' Lazy compute
+    Dim container As Variant: vAssignment container, lval("container")
+    Select Case lval("kind")
+        Case "scopeVar"
+            progScope.SetValue CStr(key), rval
+        Case "prop"
+            If TypeName(container) <> "Map" Then
+                Dim baseVariable As String
+                Dim pObject As Variant
+                Dim keys As New Collection
+                Dim i As Long
+                vAssignment pObject, lval("parentObj")
+                Do While pObject.Exists("parentObj")
+                    keys.Add pObject("key")
+                    vAssignment pObject, pObject("parentObj")
+                    If Not pObject.Exists("parentKey") Then
                         Exit Do
-                    ElseIf IsArray(parentVal) Then
-                        ' parentVal is array stored in a top-level variable; assign into it if propName is a numeric index
-                        If IsNumeric(propName) Then
-                            Call AssignToArrayValueInPlace(parentVal, CLng(propName), rhsValue)
-                            progScope.SetValue parentName, parentVal
-                            done = True
-                            Exit Do
-                        End If
                     End If
-                End If
-                curName = parentName
-            Loop
-            If done Then Exit Sub
-            ' If not resolvable, fallthrough and set top-level variable (will create variable named "o.a" which is undesirable)
-        End If
-        progScope.SetValue vname, rhsValue
-    Case "mapObj"
-        Dim mapObj As Map
-        ' resolved(1) can be either a Map object or (unexpectedly) a string like "o.a" in some flows.
-        If TypeName(resolved(1)) = "String" Then
-            ' try to resolve dotted name to a Map + prop
-            Dim dotted As String: dotted = CStr(resolved(1))
-            If InStr(dotted, ".") > 0 Then
-                Dim leftPart As String: leftPart = left$(dotted, InStrRev(dotted, ".") - 1)
-                Dim rightPart As String: rightPart = Mid$(dotted, InStrRev(dotted, ".") + 1)
-                Dim leftVal As Variant: vAssignment leftVal, progScope.GetValue(leftPart)
-                If Not IsEmpty(leftVal) And TypeName(leftVal) = "Map" Then
-                    Set mapObj = leftVal
-                    propName2 = rightPart
-                    mapObj.SetValue propName2, rhsValue
-                    Exit Sub
-                End If
+                Loop
+                baseVariable = pObject("key")
+                vAssignment pObject, container.GetValue(baseVariable)
+                For i = keys.Count To 2 Step -1
+                    vAssignment pObject, pObject.GetValue(keys(i))
+                Next
+'                If lval("parentKind") = "index" Then
+'                    Dim tValue As Variant
+'                    vAssignment tValue, pObject(keys(1))
+'                End If
+                Dim tValue As Variant
+                vAssignment tValue, pObject(keys(1))
+                tValue.SetValue CStr(key), rval
+            Else
+                container.SetValue CStr(key), rval
             End If
-            ' fallback: treat resolved(1) as string variable name
-            Dim xname As String: xname = CStr(resolved(1))
-            If Not IsEmpty(progScope.GetValue(xname)) Then
-                If TypeName(progScope.GetValue(xname)) = "Map" Then
-                    Set mapObj = progScope.GetValue(xname)
-                    Dim propName2b As String: propName2b = CStr(resolved(2))
-                    mapObj.SetValue propName2b, rhsValue
-                    Exit Sub
+        Case "index"
+            Dim pos As Long: pos = CLng(key)
+            Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
+            If pos < optionBase Then err.Raise vbObjectError + 5001, "VM.HandleAssignment", "Invalid index"
+        
+            ' If ResolvePath provided parentKey this means the array is stored under a property/variable:
+            Dim parentKey As Variant
+            If lval.Exists("parentKey") Then vAssignment parentKey, lval("parentKey") Else parentKey = Empty
+        
+            If Not IsEmpty(parentKey) Then
+                ' parent container holds the array under parentKey (could be progScope or Map)
+                Dim arrVal As Variant
+                If TypeName(container) = "Map" Then
+                    vAssignment arrVal, container.GetValue(CStr(parentKey))
+                ElseIf TypeName(container) = "ScopeStack" Then
+                    vAssignment arrVal, container.GetValue(CStr(parentKey))
                 Else
-                    err.Raise vbObjectError + 9130, "VM.HandleAssignment", "Cannot resolve mapObj from string: " & dotted
+                    ' fallback: maybe container itself is the array
+                    vAssignment arrVal, container
+                End If
+        
+                ' Ensure arrVal is an array we can index into (AssignToArrayValueInPlace will create/resize).
+                Call AssignToArrayValueInPlace(arrVal, pos, rval)
+        
+                ' Write the updated array back into the parent container
+                If TypeName(container) = "Map" Then
+                    container.SetValue CStr(parentKey), arrVal
+                ElseIf TypeName(container) = "ScopeStack" Then
+                    container.SetValue CStr(parentKey), arrVal
+                Else
+                    ' if container itself was an array variable (rare), try to overwrite it:
+                    container = arrVal
+                End If
+            Else
+                ' container is the array itself
+                If IsArray(container) Then
+                    Call AssignToArrayValueInPlace(container, pos, rval)
+                Else
+                    err.Raise vbObjectError + 5002, "VM.HandleAssignment", "Cannot index non-array/non-map for set"
                 End If
             End If
-        Else
-            Set mapObj = resolved(1)
-            propName2 = CStr(resolved(2))
-            mapObj.SetValue propName2, rhsValue
-        End If
-     Case "arrayInScope"
-        Dim arrName As String: arrName = CStr(resolved(1))
-        Dim idx As Long: idx = CLng(resolved(2))
-        ' If arrName is dotted (like "o.a"), resolve to parent Map and property name, then operate on that property's array
-        If InStr(arrName, ".") > 0 Then
-            Dim curD As String: curD = arrName
-            Dim resolvedOK As Boolean: resolvedOK = False
-            Do While InStr(curD, ".") > 0 And Not resolvedOK
-                Dim lastDot2 As Long: lastDot2 = InStrRev(curD, ".")
-                Dim pName As String: pName = left$(curD, lastDot2 - 1)
-                Dim propN As String: propN = Mid$(curD, lastDot2 + 1)
-                Dim pVal As Variant: vAssignment pVal, progScope.GetValue(pName)
-                If Not IsEmpty(pVal) And TypeName(pVal) = "Map" Then
-                    Dim arrVal2 As Variant: vAssignment arrVal2, pVal.GetValue(propN)
-                    If IsEmpty(arrVal2) Then
-                        Dim tmpC() As Variant
-                        ReDim tmpC(1 To 0)
-                        arrVal2 = tmpC
-                    End If
-                    Call AssignToArrayValueInPlace(arrVal2, idx, rhsValue)
-                    pVal.SetValue propN, arrVal2
-                    resolvedOK = True
-                    Exit Do
-                End If
-                curD = pName
-            Loop
-            If resolvedOK Then Exit Sub
-            ' fallthrough to try as top-level arr var
-        End If
-        AssignToArrayByName arrName, idx, rhsValue, progScope
-     Case "arrayInMap"
-        ' in the special shape the resolver returned Array(kind,map,index,propName)
-        If UBound(resolved) >= 4 Then
-            Dim mapObj2 As Map: Set mapObj2 = resolved(1)
-            Dim idx2 As Long: idx2 = CLng(resolved(2))
-            Dim propName3 As String: propName3 = CStr(resolved(3))
-            Dim arrVal As Variant: vAssignment arrVal, mapObj2.GetValue(propName3)
-            ' if not array, create
-            If IsEmpty(arrVal) Then
-                Dim newA() As Variant
-                ReDim newA(0 To 0)
-                arrVal = newA
-            End If
-            ' Assign into the array stored in the map property (use 1-based semantics)
-            Call AssignToArrayValueInPlace(arrVal, idx2, rhsValue)
-            ' store back the possibly resized array
-            mapObj2.SetValue propName3, arrVal
-        Else
-            err.Raise vbObjectError + 9110, "VM.HandleAssignment", "Malformed ResolveLValue arrayInMap result"
-        End If
+        Case "Member"
+            Dim baseVal As Variant: vAssignment baseVal, EvalExprNode(left.GetValue("base"), progScope)
+            If TypeName(baseVal) <> "Map" Then err.Raise vbObjectError + 5007, "VM.HandleAssignment", "Cannot set property on non-map"
+            Dim propKey As String: propKey = IIf(left.Exists("prop"), "prop", "property")
+            baseVal.SetValue left.GetValue(propKey), rval
     End Select
-    Exit Sub
-HandlerErr:
-     err.Raise err.Number, err.Source, err.Description
- End Sub
+End Sub
 
  Sub AssignToArrayByName(arrVarName As String, idx As Long, newValue As Variant, progScope As ScopeStack)
      Dim arrVal As Variant: arrVal = progScope.GetValue(arrVarName)
@@ -1624,7 +1410,7 @@ HandlerErr:
      If pos > ub Then
          ReDim Preserve arrVal(lb To pos)
      End If
-     arrVal(pos) = newValue
+     vAssignment arrVal(pos), newValue
  End Sub
 '-----------------------------------------------------------------------
 ' GetElementMapFromIndexNode
@@ -1703,3 +1489,7 @@ Function GetElementMapFromIndexNode(indexNode As Map, progScope As ScopeStack) A
     End Select
 End Function
  ' ----------------- end LValue helpers -----------------
+' ---------------------
+' End VM class
+' ---------------------
+
