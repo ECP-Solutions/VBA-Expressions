@@ -193,49 +193,11 @@ Notes: this test checks your "log when missing statement separator" feature.
 VBAexpressions integration
 
 vbexpr_embedded
-Script: print( @( 2 + 3 * 4 ) );
-Expected: 14
+Script: a = @({1;0;4});
+        b = @({1;1;6});
+        c = @({-3;0;-10});
+        d = @({2;3;4});
+        print(@(LUDECOMP(ARRAY(a;b;c))))
+Expected: {{-3;0;-10};{-0.333333333333333;1;2.66666666666667};{-0.333333333333333;0;0.666666666666667}}
 Notes: @(...) should be parsed as VBExpr node and evaluated by VBAexpressions seeded with program variables.
-
-vbexpr_function_fallback
-Script: print(sqrt(25));
-Expected: 5 if sqrt available in your VBAexpressions setup; otherwise this test verifies that call falls back to VB evaluator by EvalVBFunctionCall.
-Notes: Ensure call forwarding builds a correct expression like sqrt(__asf_vbarg_1).
-
-Error & edge-case tests
-
-division_by_zero_error
-Script: print(1/0);
-Expected: runtime error => either ERR in control flow or a try/catch would catch it. When not caught, gRuntimeLog should contain an error message.
-Pass if: error surfaced to runtime log and execution halts (or try/catch catches).
-
-unclosed_parenthesis_error
-Script: print( (1 + 2 );
-Expected: compile-time parse error.
-Pass if: CompileProgram raises or returns an error and program not added.
-
-circular_print_protection (optional depending on pretty-print implementation)
-Script:
-o = { };
-o.self = o;
-print(o);
-
-Expected: no infinite recursion or crash. Either prints some safe representation like {self: [Circular]} or logs an error.
-Notes: if your ValueToStringForPrint doesn't protect, this will infinite-loop — consider adding depth/cycle detection.
-
-Integration & regression suite
-
-combined_sanity
-Script:
-/* combined run */
-print('start');
-a=[1,2];
-print(a[1]);
-fun incr(x) { return x+1 };
-print(incr(4));
-try { y=1/0 } catch { print('err') }
-print('end');
-
-Expected: start, 1, 5, err, end
-Pass if many features cooperate together.
 

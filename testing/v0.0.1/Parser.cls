@@ -83,8 +83,8 @@ Tokenize_MainLoop:
                 toks.Add Array("SEP", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
             Case "(", ")", "{", "}", "[", "]"
                 toks.Add Array("PAREN", ch): i = i + 1: GoTo Tokenize_SkipToLoopEnd
-            Case "+", "-", "*", "/", "^", "%"
-                ' support +=, -=, *=, /=, ^=, %=
+            Case "+", "-", "*", "/", "^", "%", "&", "|"
+                ' support +=, -=, *=, /=, ^=, %=, &=, |=
                 If i < n And Mid$(src, i + 1, 1) = "=" Then
                     toks.Add Array("OP", ch & "="): i = i + 2
                 Else

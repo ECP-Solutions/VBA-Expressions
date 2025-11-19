@@ -604,7 +604,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             cmap.SetValue "env", envCopy
             vAssignment tmpResult, cmap
             GoTo exitfun
-        Case "VBEXPR"
+        Case "VBAexpr"
             ' Forced VBAexpression node (from @(...)). The node stores the raw VB expression string in "expr".
             Dim rawVB As String: rawVB = node.GetValue("expr")
             vAssignment tmpResult, EvalVBExpressionWithScope(rawVB, progScope)
@@ -1246,33 +1246,32 @@ End Function
  ' seeding it with the current ASF scope variables so VB expressions can reference ASF variables.
 Private Function EvalVBExpressionWithScope(expr As String, progScope As ScopeStack) As Variant
      On Error GoTo ErrHandler
-     Dim exprEval As VBAexpressions
-     Set exprEval = New VBAexpressions
-
-     ' Create expression in evaluator
-     exprEval.Create expr
-
-     ' Inject variables from progScope (shadowing: global frames first, then locals)
-     Dim frame As Variant
-     Dim m As Map
-     Dim keyCol As Collection
-     Dim key As Variant
-     For Each frame In progScope.Raw
-         Set m = frame
-         Set keyCol = m.keys
-         For Each key In keyCol
-             exprEval.VarValue(CStr(key)) = m.GetValue(CStr(key))
-         Next key
-     Next frame
-
-     ' Evaluate
-     exprEval.Eval
-     If exprEval.ErrorType = 0 Then
-         EvalVBExpressionWithScope = exprEval.result
-     Else
-         ' On error, raise to caller; the try/catch at Exec layer can handle it
-         err.Raise vbObjectError + 7001, "VM.EvalVBExpressionWithScope", "VBAexpressions eval error"
-     End If
+     With GLOBALS_.gExprEvaluator
+         ' Create expression in evaluator
+         .Create expr
+    
+         ' Inject variables from progScope (shadowing: global frames first, then locals)
+         Dim frame As Variant
+         Dim m As Map
+         Dim keyCol As Collection
+         Dim key As Variant
+         For Each frame In progScope.Raw
+             Set m = frame
+             Set keyCol = m.keys
+             For Each key In keyCol
+                 .VarValue(CStr(key)) = m.GetValue(CStr(key))
+             Next key
+         Next frame
+    
+         ' Evaluate
+         .Eval
+         If .ErrorType = 0 Then
+             EvalVBExpressionWithScope = .result
+         Else
+             ' On error, raise to caller; the try/catch at Exec layer can handle it
+             err.Raise vbObjectError + 7001, "VM.EvalVBExpressionWithScope", "VBAexpressions eval error"
+         End If
+     End With
      Exit Function
 ErrHandler:
      ' convert to runtime log and return Empty

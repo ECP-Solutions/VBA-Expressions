@@ -227,8 +227,6 @@ CollectNextTop:
     Dim normalizedStmts As Collection
     ' Normalize assignment-like expression-statements into proper Assign AST nodes
     Set normalizedStmts = NormalizeAssignsInStmts(stmtsAST)
-    ' Normalize compound assignments (+=, -=, etc.)
-    Set normalizedStmts = NormalizeCompoundAssigns(normalizedStmts)
     pIndex = GLOBALS_.gPrograms.Count + 1
     GLOBALS_.gPrograms.Add Array(progName, normalizedStmts, progScope.Raw, optionBase)
     GLOBALS_.ProgramCache.Add src, pIndex
@@ -451,8 +449,9 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
         End Select
     End If
 
-    ' assignment: find top-level "=" operator position
+    ' assignment: find top-level "=" operator position or compound-assignment like "+=", "-=", "*=", etc.
     Dim assignPos As Long: assignPos = 0
+    Dim compoundOp As String: compoundOp = ""
     Dim ii As Long
     Dim depthB As Long, depthP As Long, depthBr As Long
     For ii = 1 To stmtTokens.Count
@@ -472,9 +471,20 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
                     If depthBr > 0 Then depthBr = depthBr - 1
             End Select
         End If
-        If stmtTokens(ii)(0) = "OP" And stmtTokens(ii)(1) = "=" And depthB = 0 And depthP = 0 And depthBr = 0 Then
-            assignPos = ii
-            Exit For
+        If depthB = 0 And depthP = 0 And depthBr = 0 And stmtTokens(ii)(0) = "OP" Then
+            Dim opv As String: opv = CStr(stmtTokens(ii)(1))
+            ' plain assignment
+            If opv = "=" Then
+                assignPos = ii
+                Exit For
+            End If
+            ' compound assignment operators we support
+            Select Case opv
+                Case "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|="
+                    assignPos = ii
+                    compoundOp = opv
+                    Exit For
+            End Select
         End If
     Next ii
 
@@ -502,14 +512,29 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
         Else
             Set lhsNode = ParseExprTokensToNode(lhsT)
         End If
-        Dim rhsNode As Map: Set rhsNode = ParseExprTokensToNode(rhsT)
+
+        Dim rhsNode As Map
+        If compoundOp <> "" Then
+            ' For compound assignments like "a += 3" produce:
+            ' Assign { left: lhsNode, right: Binary { left: (clone of lhsNode), op: <op>, right: <rhsExpr> } }
+            Dim innerOp As String: innerOp = left$(compoundOp, Len(compoundOp) - 1)
+            Dim rightExpr As Map: Set rightExpr = ParseExprTokensToNode(rhsT)
+            Dim lhsClone As Map: Set lhsClone = lhsNode.Clone
+            Dim bin As Map: Set bin = MakeNode("Binary")
+            bin.SetValue "left", lhsClone
+            bin.SetValue "op", innerOp
+            bin.SetValue "right", rightExpr
+            Set rhsNode = bin
+        Else
+            Set rhsNode = ParseExprTokensToNode(rhsT)
+        End If
+
         Dim asn As Map: Set asn = MakeNode("Assign")
         asn.SetValue "left", lhsNode
         asn.SetValue "right", rhsNode
         Set ParseStatementTokensToAST = asn
         Exit Function
     End If
-
     ' fallback: expression statement
     Dim exprNode As Map
     Set exprNode = ParseExprTokensToNode(stmtTokens)
@@ -830,7 +855,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
         Case "VBEXPR"
             ' Special token produced by the parser for @(...) or direct VBAexpressions block.
             ' Create a VBExpr node with the raw expression string (to be evaluated by VBAexpressions at runtime).
-            Dim vbNode As Map: Set vbNode = MakeNode("VBExpr")
+            Dim vbNode As Map: Set vbNode = MakeNode("VBAexpr")
             vbNode.SetValue "expr", CStr(v)
             idx = idx + 1
             Set ParsePrimaryNode = vbNode
@@ -1021,20 +1046,6 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
             End If
             ' Postfix loop: handle .prop, [...], func calls (...) as postfixes chaining onto currentNode
             Do While idx < n
-                ' member access a.b
-'                If types(idx) = "SYM" And vals(idx) = "." Then
-'                    idx = idx + 1
-'                    If idx < n And types(idx) = "IDENT" Then
-'                        Set mem = MakeNode("Member")
-'                        mem.SetValue "base", currentNode
-'                        mem.SetValue "prop", CStr(vals(idx))
-'                        Set currentNode = mem.Clone
-'                        idx = idx + 1
-'                        ' continue loop
-'                    Else
-'                        ' invalid member access; stop postfixing
-'                        Exit Do
-'                    End If
                 ' member access a.b (with special-case for ".length" -> builtin __len__ call)
                 If types(idx) = "SYM" And vals(idx) = "." Then
                     idx = idx + 1
@@ -2211,54 +2222,6 @@ Private Function NormalizeAssignsInStmts(stmts As Collection) As Collection
     Set NormalizeAssignsInStmts = out
 End Function
 
- ' Normalize compound assignments like a += b  -> Assign(a, Binary(a, +, b))
- Private Function NormalizeCompoundAssigns(stmts As Collection) As Collection
-     Dim out As New Collection
-     If stmts Is Nothing Then
-         Set NormalizeCompoundAssigns = out: Exit Function
-     End If
-     Dim i As Long
-     Dim e As Map
-     Dim n As Map
-     Dim op As String
-     Dim left_ As Map
-     Dim right_ As Map
-     Dim bin As Map
-     Dim baseOp As String
-     Dim a As Map
-     For i = 1 To stmts.Count
-         Set n = stmts(i)
-         If Not n Is Nothing And n.GetValue("type") = "ExprStmt" Then
-             Set e = n.GetValue("expr")
-             If Not e Is Nothing And e.GetValue("type") = "Binary" Then
-                 op = CStr(e.GetValue("op"))
-                 Select Case op
-                     Case "+=", "-=", "*=", "/=", "%=", "^="
-                         ' build Assign node: left = left <op> right
-                         Set left_ = e.GetValue("left")
-                         Set right_ = e.GetValue("right")
-                         Set bin = New Map
-                         bin.Add "type", "Binary"
-                         baseOp = left$(op, Len(op) - 1)
-                         bin.SetValue "op", baseOp
-                         ' left needs to be used as a copy for the RHS binary left operand
-                         bin.SetValue "left", left_
-                         bin.SetValue "right", right_
-                         Set a = New Map
-                         a.Add "type", "Assign"
-                         a.SetValue "left", left_
-                         a.SetValue "right", bin
-                         out.Add a
-                         GoTo NormNext
-                 End Select
-             End If
-         End If
-         ' default: pass-through (but recursively normalize inner blocks too if desired)
-         out.Add n
-NormNext:
-     Next i
-     Set NormalizeCompoundAssigns = out
- End Function
 ' ---------------------
 ' End Compiler class
 ' ---------------------

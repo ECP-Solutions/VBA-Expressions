@@ -19,6 +19,7 @@ Public gRuntimeLog As Collection
 Public DEBUG_TRACE As Boolean
 Public STRICT_STRINGS As Boolean
 Public gCallStack As Collection
+Public gExprEvaluator As VBAexpressions
 Private MAX_CALL_DEPTH_ As Long
 
 Public Function ASF_InitGlobals() As Globals
@@ -29,6 +30,7 @@ Public Function ASF_InitGlobals() As Globals
     If ProgramCache Is Nothing Then Set ProgramCache = New Map
     If gRuntimeLog Is Nothing Then Set gRuntimeLog = New Collection
     If gCallStack Is Nothing Then Set gCallStack = New Collection
+    If gExprEvaluator Is Nothing Then Set gExprEvaluator = New VBAexpressions
     DEBUG_TRACE = True
     STRICT_STRINGS = True
     MAX_CALL_DEPTH_ = 512
