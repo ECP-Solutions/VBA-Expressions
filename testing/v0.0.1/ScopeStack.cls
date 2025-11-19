@@ -146,6 +146,15 @@ Public Sub SetValue(key As String, val As Variant)
     top.SetValue key, val
 End Sub
 
+' Write directly into the top (current) frame, always creating/overwriting the key
+' in the current frame regardless of whether the same name exists in outer frames.
+' Use this for binding function parameters / declaring locals.
+Public Sub SetLocalValue(key As String, val As Variant)
+    Dim top As Map
+    Set top = pFrames(pFrames.Count)
+    top.SetValue key, val
+End Sub
+
 ' Clone the ScopeStack (deep): returns a new ScopeStack with cloned frames
 Public Function Clone() As ScopeStack
     Dim s As New ScopeStack

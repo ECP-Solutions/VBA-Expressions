@@ -592,7 +592,8 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             ' Create closure (capture env by reference for shared-write closures)
             Dim cparams As Collection: vAssignment cparams, node.GetValue("params")
             Dim cbody As Collection: vAssignment cbody, node.GetValue("body")
-            Dim cmap As New Map
+            Dim cmap As Map
+            Set cmap = New Map
             Dim envCopy As ScopeStack
             cmap.Add "type", "Closure"
             cmap.SetValue "params", cparams
@@ -636,33 +637,29 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
         Case "Literal"
             vAssignment tmpResult, node.GetValue("value")
             GoTo exitfun
-'        Case "Variable"
-'            Dim vname As String: vname = CStr(node.GetValue("name"))
-'            Dim res As Map: Set res = ResolvePath(node, progScope)
-'            vAssignment tmpResult, res("value")
-'            GoTo exitfun
         Case "Variable"
+            ' Robust variable resolution:
+            '  - return actual value from scope (covers closures stored as Map AST nodes)
+            '  - if scope has no value, fallback to named functions table (gFuncTable)
+            '  - optional fallback to gFuncObjects registry
             Dim vname As String: vname = CStr(node.GetValue("name"))
-            Dim res As Map: Set res = ResolvePath(node, progScope, False)
             Dim vVal As Variant
-            On Error Resume Next
-            If Not res Is Nothing And res.Exists("value") Then
-                vAssignment vVal, res("value")
-            Else
-                ' Try direct scope lookup as a defensive fallback
-                vAssignment vVal, progScope.GetValue(vname)
-            End If
-            On Error GoTo 0
-        
-            ' If scope contains a non-empty value, return it — this covers closures stored as Map/AST nodes.
+            vAssignment vVal, progScope.GetValue(vname)
+
+            ' If scope contains a non-empty value, return it — this covers closures
+            ' stored as Map/AST nodes (FuncLiteral/Closure/etc.).
             If Not IsEmpty(vVal) Then
+                ' If it's a Map and looks like a function node, return as callable
+                On Error Resume Next
                 If TypeName(vVal) = "Map" Then
-                    On Error Resume Next
                     Dim maybeType As Variant
+                    maybeType = Empty
+                    On Error Resume Next
                     maybeType = vVal.GetValue("type")
                     On Error GoTo 0
                     If Not IsEmpty(maybeType) Then
                         Dim tt As String: tt = CStr(maybeType)
+                        ' Common names for function-like AST nodes / closures:
                         If tt = "FuncLiteral" Or tt = "Function" Or tt = "Closure" Or tt = "AnonFunction" Then
                             vAssignment tmpResult, vVal
                             GoTo exitfun
@@ -673,20 +670,20 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                 vAssignment tmpResult, vVal
                 GoTo exitfun
             End If
-        
-            ' Not found in scope or empty -> fallback to named compiled function table (gFuncTable)
+
+            ' Not in scope (or Empty). Fallback: named compiled function table.
             On Error Resume Next
             If GLOBALS_.gFuncTable.Exists(vname) Then
                 Dim fIdxVal As Variant: fIdxVal = GLOBALS_.gFuncTable.GetValue(vname)
                 On Error GoTo 0
                 If Not IsEmpty(fIdxVal) Then
-                    ' funcIdx is expected to be available in the containing function scope (follow your convention)
                     funcIdx = CLng(fIdxVal)
-        
+
                     ' Build a Closure map with the shape CallClosure expects:
+                    ' "type" = "Closure", "params" = Collection, "body" = Collection, "env" = ScopeStack
                     Dim closureMap As New Map
                     closureMap.Add "type", "Closure"
-        
+
                     ' params: convert stored gFuncParams (likely an array) into a Collection
                     Dim paramsCol As Collection
                     Set paramsCol = New Collection
@@ -701,6 +698,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                                 paramsCol.Add vbNullString
                             End If
                         ElseIf TypeName(paVar) = "Collection" Then
+                            ' already a collection — copy it
                             Dim it As Variant
                             For Each it In paVar
                                 paramsCol.Add it
@@ -708,7 +706,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                         End If
                     End If
                     closureMap.SetValue "params", paramsCol
-        
+
                     ' body and env come from gPrograms(funcIdx)
                     Dim pinfo As Variant
                     On Error Resume Next
@@ -720,29 +718,29 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                         Exit Function
                     End If
                     On Error GoTo 0
-        
+
                     ' pinfo layout: Array(name, stmtsCollection, rawScopeCollection)
                     Dim bodyStmts As Collection
                     Set bodyStmts = pinfo(1)
                     closureMap.SetValue "body", bodyStmts
-        
+
                     ' env: create ScopeStack and LoadRaw with stored raw scope (so closure has env object)
                     Dim envScope As ScopeStack
                     Set envScope = New ScopeStack
                     envScope.LoadRawByRef progScope.RawByRef
                     Set pinfo(2) = envScope.RawByRef
                     closureMap.SetValue "env", envScope
-        
+
                     ' optionally store a name/funcIdx for debugging
                     closureMap.SetValue "name", vname
                     closureMap.SetValue "funcIdx", funcIdx
-        
+
                     vAssignment tmpResult, closureMap
                     GoTo exitfun
                 End If
             End If
             On Error GoTo 0
-        
+
             ' Not found — log and return Empty
             If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vname & "' is undefined or not callable (returned Empty)."
             vAssignment tmpResult, Empty
@@ -926,9 +924,9 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
         Dim pa As Variant: pa = GLOBALS_.gFuncParams.GetValue(fname)
         For i = LBound(pa) To UBound(pa)
             If i - LBound(pa) + 1 <= args.Count Then
-                callScope.SetValue CStr(pa(i)), args(i - LBound(pa) + 1)
+                callScope.SetLocalValue CStr(pa(i)), args(i - LBound(pa) + 1)
             Else
-                callScope.SetValue CStr(pa(i)), Empty
+                callScope.SetLocalValue CStr(pa(i)), Empty
             End If
         Next i
     End If
@@ -1364,16 +1362,16 @@ End Function
          For Each elm In pa
              i = i + 1
              If i <= evaluatedArgs.Count Then
-                 env.SetValue CStr(elm), evaluatedArgs(i)
+                 env.SetLocalValue CStr(elm), evaluatedArgs(i)
              Else
-                 env.SetValue CStr(elm), Empty
+                 env.SetLocalValue CStr(elm), Empty
              End If
          Next elm
      End If
 
      ' set 'this' if provided
      If Not IsMissing(thisVal) Then
-         env.SetValue "this", thisVal
+         env.SetLocalValue "this", thisVal
      End If
 
      ' execute body
@@ -1429,10 +1427,6 @@ Private Sub HandleAssignment(left As Map, ByVal rval As Variant, progScope As Sc
                 For i = keys.Count To 2 Step -1
                     vAssignment pObject, pObject.GetValue(keys(i))
                 Next
-'                If lval("parentKind") = "index" Then
-'                    Dim tValue As Variant
-'                    vAssignment tValue, pObject(keys(1))
-'                End If
                 Dim tValue As Variant
                 vAssignment tValue, pObject(keys(1))
                 tValue.SetValue CStr(key), rval
