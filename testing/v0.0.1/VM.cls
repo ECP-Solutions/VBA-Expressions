@@ -808,7 +808,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                     If ct = "Member" Or ct = "Index" Then
                         hasThisVal = True
                         Set baseExpr = calleeExpr.GetValue("base")
-                        thisVal = EvalExprNode(baseExpr, progScope)
+                        vAssignment thisVal, EvalExprNode(baseExpr, progScope)
                     End If
                 End If
                 vAssignment calleeVal, EvalExprNode(calleeExpr, progScope)
@@ -860,16 +860,16 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim op2 As String: op2 = node.GetValue("op")
             If op2 = "&&" Then
                 If Not IsTruthy(lop) Then vAssignment tmpResult, False: GoTo exitfun
-                rop = EvalExprNode(node.GetValue("right"), progScope)
+                vAssignment rop, EvalExprNode(node.GetValue("right"), progScope)
                 vAssignment tmpResult, (IsTruthy(lop) And IsTruthy(rop))
                 GoTo exitfun
             ElseIf op2 = "||" Then
                 If IsTruthy(lop) Then vAssignment tmpResult, True: GoTo exitfun
-                rop = EvalExprNode(node.GetValue("right"), progScope)
+                vAssignment rop, EvalExprNode(node.GetValue("right"), progScope)
                 vAssignment tmpResult, (IsTruthy(lop) Or IsTruthy(rop))
                 GoTo exitfun
             Else
-                rop = EvalExprNode(node.GetValue("right"), progScope)
+                vAssignment rop, EvalExprNode(node.GetValue("right"), progScope)
                 Select Case op2
                     Case "+"
                         vAssignment tmpResult, SafeAdd(lop, rop)
