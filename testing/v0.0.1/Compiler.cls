@@ -812,6 +812,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
     Dim currentNode As Map
     Dim mem As Map
     Dim indexNode As Map
+    Dim propName As String
     
     Select Case t
         Case "NUMBER"
@@ -947,7 +948,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         ' member access .prop
                         posS = posS + 1
                         ' read identifier after dot
-                        Dim propName As String: propName = ""
+                        propName = ""
                         Do While posS <= L
                             Dim ch2 As String: ch2 = Mid$(s, posS, 1)
                             If ch2 = "." Or ch2 = "[" Then Exit Do
@@ -1021,14 +1022,45 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
             ' Postfix loop: handle .prop, [...], func calls (...) as postfixes chaining onto currentNode
             Do While idx < n
                 ' member access a.b
+'                If types(idx) = "SYM" And vals(idx) = "." Then
+'                    idx = idx + 1
+'                    If idx < n And types(idx) = "IDENT" Then
+'                        Set mem = MakeNode("Member")
+'                        mem.SetValue "base", currentNode
+'                        mem.SetValue "prop", CStr(vals(idx))
+'                        Set currentNode = mem.Clone
+'                        idx = idx + 1
+'                        ' continue loop
+'                    Else
+'                        ' invalid member access; stop postfixing
+'                        Exit Do
+'                    End If
+                ' member access a.b (with special-case for ".length" -> builtin __len__ call)
                 If types(idx) = "SYM" And vals(idx) = "." Then
                     idx = idx + 1
                     If idx < n And types(idx) = "IDENT" Then
-                        Set mem = MakeNode("Member")
-                        mem.SetValue "base", currentNode
-                        mem.SetValue "prop", CStr(vals(idx))
-                        Set currentNode = mem.Clone
-                        idx = idx + 1
+                        propName = CStr(vals(idx))
+                        ' If user asks for ".length" transform into a call to builtin __len__
+                        ' at compile time: a[3].length  -->  __len__( a[3] )
+                        Select Case LCase$(propName)
+                            Case "length"
+                                Dim lenCallNode As Map: Set lenCallNode = MakeNode("Call")
+                                Dim builtinLenVar As Map: Set builtinLenVar = MakeNode("Variable")
+                                builtinLenVar.SetValue "name", ".__len__"
+                                lenCallNode.SetValue "callee", builtinLenVar
+                                lenCallNode.SetValue "name", ".__len__"
+                                Dim lenArgs As New Collection
+                                lenArgs.Add currentNode.Clone
+                                lenCallNode.SetValue "args", lenArgs
+                                Set currentNode = lenCallNode.Clone
+                                idx = idx + 1
+                            Case Else
+                                Set mem = MakeNode("Member")
+                                mem.SetValue "base", currentNode
+                                mem.SetValue "prop", propName
+                                Set currentNode = mem.Clone
+                                idx = idx + 1
+                        End Select
                         ' continue loop
                     Else
                         ' invalid member access; stop postfixing

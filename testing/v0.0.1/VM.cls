@@ -194,7 +194,7 @@ Private Function EvalMemberNode(node As Map, progScope As ScopeStack) As Variant
     Dim baseVal As Variant
     vAssignment baseVal, EvalExprNode(node.GetValue("base"), progScope)
     If TypeName(baseVal) <> "Map" Then err.Raise vbObjectError + 5007, "VM.EvalMemberNode", "Cannot access property on non-map"
-    vAssignment EvalMemberNode, baseVal.GetValue(prop)  ' Ensure this line is present!
+    vAssignment EvalMemberNode, baseVal.GetValue(prop)
 End Function
 
 Private Function EvalIndexNode(node As Map, progScope As ScopeStack) As Variant
@@ -1410,25 +1410,25 @@ Private Sub HandleAssignment(left As Map, ByVal rval As Variant, progScope As Sc
             progScope.SetValue CStr(key), rval
         Case "prop"
             If TypeName(container) <> "Map" Then
-                Dim baseVariable As String
-                Dim pObject As Variant
-                Dim keys As New Collection
-                Dim i As Long
-                vAssignment pObject, lval("parentObj")
-                Do While pObject.Exists("parentObj")
-                    keys.Add pObject("key")
-                    vAssignment pObject, pObject("parentObj")
-                    If Not pObject.Exists("parentKey") Then
-                        Exit Do
-                    End If
-                Loop
-                baseVariable = pObject("key")
-                vAssignment pObject, container.GetValue(baseVariable)
-                For i = keys.Count To 2 Step -1
-                    vAssignment pObject, pObject.GetValue(keys(i))
-                Next
+'                Dim baseVariable As String
+'                Dim pObject As Variant
+'                Dim keys As New Collection
+'                Dim i As Long
+'                vAssignment pObject, lval("parentObj")
+'                Do While pObject.Exists("parentObj")
+'                    keys.Add pObject("key")
+'                    vAssignment pObject, pObject("parentObj")
+'                    If Not pObject.Exists("parentKey") Then
+'                        Exit Do
+'                    End If
+'                Loop
+'                baseVariable = pObject("key")
+'                vAssignment pObject, container.GetValue(baseVariable)
+'                For i = keys.Count To 2 Step -1
+'                    vAssignment pObject, pObject.GetValue(keys(i))
+'                Next
                 Dim tValue As Variant
-                vAssignment tValue, pObject(keys(1))
+                vAssignment tValue, ResolveIndexProp(lval)
                 tValue.SetValue CStr(key), rval
             Else
                 container.SetValue CStr(key), rval
@@ -1481,7 +1481,27 @@ Private Sub HandleAssignment(left As Map, ByVal rval As Variant, progScope As Sc
             baseVal.SetValue left.GetValue(propKey), rval
     End Select
 End Sub
-
+Private Function ResolveIndexProp(ByRef lval) As Variant
+    Dim baseVariable As String
+    Dim pObject As Variant
+    Dim keys As New Collection
+    Dim i As Long
+    vAssignment pObject, lval("parentObj")
+    Do While pObject.Exists("parentObj")
+        keys.Add pObject("key")
+        vAssignment pObject, pObject("parentObj")
+        If Not pObject.Exists("parentKey") Then
+            Exit Do
+        End If
+    Loop
+    baseVariable = pObject("key")
+    Dim container As Variant: vAssignment container, lval("container")
+    vAssignment pObject, container.GetValue(baseVariable)
+    For i = keys.Count To 2 Step -1
+        vAssignment pObject, pObject.GetValue(keys(i))
+    Next
+    vAssignment ResolveIndexProp, pObject(keys(1))
+End Function
  Sub AssignToArrayByName(arrVarName As String, idx As Long, newValue As Variant, progScope As ScopeStack)
      Dim arrVal As Variant: arrVal = progScope.GetValue(arrVarName)
      If IsEmpty(arrVal) Then
