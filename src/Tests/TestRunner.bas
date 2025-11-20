@@ -4,6 +4,7 @@ Option Private Module
 Private Evaluator As VBAexpressions
 Private expected As String
 Private actual As String
+Private ASF_ As ASF
 
 '@TestModule
 '@Folder("Tests")
@@ -1311,6 +1312,24 @@ Private Sub testOneCircleTangent()
                         "MROUND(CIRCLETANG({{-4;3}};SQRT(17);{{0;4}});4)" _
                         )
     expected = "{{0;4};{1;0}}"
+    Assert.AreEqual expected, actual
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & err.Number & " - " & err.Description
+    Resume TestExit
+End Sub
+
+'@TestMethod("Integration with ASF")
+Private Sub testASFintegration()
+    On Error GoTo TestFail
+    Dim progIdx As Long
+    Set ASF_ = New ASF
+    With ASF_
+        progIdx = .Compile("return @(SQRT(9))"): .Run progIdx
+        actual = .OUTPUT_
+    End With
+    expected = "3"
     Assert.AreEqual expected, actual
 TestExit:
     Exit Sub
