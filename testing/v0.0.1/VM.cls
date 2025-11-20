@@ -794,9 +794,6 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                 If GLOBALS_.gFuncTable.Exists(fname) Then
                     funcIdx = CLng(GLOBALS_.gFuncTable.GetValue(fname))
                     vAssignment tmpResult, CallFuncByIndex_AST(funcIdx, evaluated)
-                Else
-                    ' named but not internal -> try VBAexpressions function call
-                    vAssignment tmpResult, EvalVBFunctionCall(fname, evaluated, progScope)
                 End If
             Else
                 ' dynamic callee: evaluate callee expression -> it must yield a closure map or call via VB
@@ -826,12 +823,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                         vAssignment tmpResult, Empty
                     End If
                 Else
-                    ' if calleeVal is string -> call via VBAexpressions
-                    If VarType(calleeVal) = vbString Then
-                        vAssignment tmpResult, EvalVBFunctionCall(CStr(calleeVal), evaluated, progScope)
-                    Else
-                        vAssignment tmpResult, Empty
-                    End If
+                    vAssignment tmpResult, Empty
                 End If
             End If
             GoTo exitfun
@@ -1279,59 +1271,6 @@ ErrHandler:
      If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VBAexpr error: " & err.Description
      err.Clear
      EvalVBExpressionWithScope = Empty
-End Function
-
- ' Evaluate a function call in VBAexpressions. Args is a Collection of evaluated values.
- ' We create a temporary variable for each argument inside the VBAexpressions environment
- ' to avoid needing to serialize complex values into textual literals.
-Private Function EvalVBFunctionCall(fname As String, args As Collection, progScope As ScopeStack) As Variant
-     On Error GoTo ErrHandler
-     Dim exprEval As VBAexpressions
-     Set exprEval = New VBAexpressions
-
-     ' Seed evaluator with ASF scope variables
-     Dim frame As Variant
-     Dim M As Map
-     Dim keyCol As Collection
-     Dim key As Variant
-     For Each frame In progScope.Raw
-         Set M = frame
-         Set keyCol = M.keys
-         For Each key In keyCol
-             exprEval.VarValue(CStr(key)) = M.GetValue(CStr(key))
-         Next key
-     Next frame
-
-     ' Inject arguments as temporary variables: __asf_vbarg_1, __asf_vbarg_2, ...
-     Dim i As Long
-     Dim tmpNames As New Collection
-     For i = 1 To args.count
-         Dim tname As String: tname = "__asf_vbarg_" & CStr(i)
-         tmpNames.Add tname
-         exprEval.VarValue(tname) = args(i)
-     Next i
-
-     ' build call string referencing temp names
-     Dim callStr As String: callStr = fname & "("
-     For i = 1 To tmpNames.count
-         If i > 1 Then callStr = callStr & ","
-         callStr = callStr & tmpNames(i)
-     Next i
-     callStr = callStr & ")"
-
-     ' Evaluate
-     exprEval.Create callStr
-     exprEval.Eval
-     If exprEval.ErrorType = 0 Then
-         EvalVBFunctionCall = exprEval.result
-     Else
-         err.Raise vbObjectError + 7002, "VM.EvalVBFunctionCall", "VBAexpressions function call error"
-     End If
-     Exit Function
-ErrHandler:
-     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VBAexpr function-call error: " & err.Description
-     err.Clear
-     EvalVBFunctionCall = Empty
 End Function
 
  ' ---------------------
