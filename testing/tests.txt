@@ -1,4 +1,4 @@
-Core tests (syntax & basic evaluation)
+Core tests (syntax & basic evaluation) All test passed
 
 arith_simple
 Script: print(1 + 2 * 3);
