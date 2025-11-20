@@ -212,10 +212,10 @@ Tokenize_SkipToLoopEnd:
     Dim idx As Long
     idx = 1
 Tokenize_CollapseLoop:
-    Do While idx <= toks.Count
-        If idx > toks.Count Then Exit Do ' FIX: Bounds
+    Do While idx <= toks.count
+        If idx > toks.count Then Exit Do ' FIX: Bounds
         Dim tk As Variant: tk = toks(idx)
-        If tk(0) = "IDENT" And idx + 3 <= toks.Count Then
+        If tk(0) = "IDENT" And idx + 3 <= toks.count Then
             If toks(idx + 1)(0) = "PAREN" And toks(idx + 1)(1) = "[" And toks(idx + 2)(0) = "NUMBER" And toks(idx + 3)(0) = "PAREN" And toks(idx + 3)(1) = "]" Then
                 out.Add Array("IDENT", tk(1) & "[" & toks(idx + 2)(1) & "]")
                 idx = idx + 4
@@ -232,7 +232,7 @@ End Function
 Public Function JoinTokens(tokens As Collection) As String
     Dim s As String: s = ""
     Dim i As Long
-    For i = 1 To tokens.Count
+    For i = 1 To tokens.count
         If tokens(i)(0) = "STRING" Then
             s = s & ToLiteralString(CStr(tokens(i)(1))) & " "
         Else

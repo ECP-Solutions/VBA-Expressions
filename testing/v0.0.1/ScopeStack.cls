@@ -24,8 +24,8 @@ Private pFrames As Collection ' collection of Map objects (frames)
 Private Sub Class_Initialize()
     Set pFrames = New Collection
     ' initial frame
-    Dim m As New Map
-    pFrames.Add m
+    Dim M As New Map
+    pFrames.Add M
 End Sub
 
 Public Function CaptureByReference() As ScopeStack
@@ -34,7 +34,7 @@ Public Function CaptureByReference() As ScopeStack
     Dim s As New ScopeStack
     Dim refFrames As New Collection
     Dim i As Long
-    For i = 1 To pFrames.Count
+    For i = 1 To pFrames.count
         refFrames.Add pFrames(i)   ' add the map object reference
     Next i
     s.LoadRawByRef refFrames
@@ -44,7 +44,7 @@ End Function
 Public Property Get Raw() As Collection
     Dim out As New Collection
     Dim i As Long
-    For i = 1 To pFrames.Count
+    For i = 1 To pFrames.count
         out.Add pFrames(i).Clone
     Next i
     Set Raw = out
@@ -54,7 +54,7 @@ End Property
 Public Property Get RawByRef() As Collection
     Dim out As New Collection
     Dim i As Long
-    For i = 1 To pFrames.Count
+    For i = 1 To pFrames.count
         out.Add pFrames(i)
     Next i
     Set RawByRef = out
@@ -72,7 +72,7 @@ Public Sub LoadRaw(framesCol As Collection) 'expects a collection
             pFrames.Add tmp
         End If
     Next f
-    If pFrames.Count = 0 Then
+    If pFrames.count = 0 Then
         Dim mm As New Map
         pFrames.Add mm
     End If
@@ -90,7 +90,7 @@ Public Sub LoadRawByRef(framesCol As Collection)
             pFrames.Add tmp
         End If
     Next f
-    If pFrames.Count = 0 Then
+    If pFrames.count = 0 Then
         Dim mm2 As New Map
         pFrames.Add mm2
     End If
@@ -102,14 +102,14 @@ Public Sub Push()
 End Sub
 
 Public Sub Pop()
-    If pFrames.Count <= 1 Then Exit Sub
-    pFrames.Remove pFrames.Count
+    If pFrames.count <= 1 Then Exit Sub
+    pFrames.Remove pFrames.count
 End Sub
 
 ' Has: search top->bottom for key
 Public Function Has(key As String) As Boolean
     Dim i As Long
-    For i = pFrames.Count To 1 Step -1
+    For i = pFrames.count To 1 Step -1
         If pFrames(i).Exists(key) Then
             Has = True
             Exit Function
@@ -121,7 +121,7 @@ End Function
 ' GetValue: search top->bottom
 Public Function GetValue(key As String) As Variant
     Dim i As Long
-    For i = pFrames.Count To 1 Step -1
+    For i = pFrames.count To 1 Step -1
         If pFrames(i).Exists(key) Then
             vAssignment GetValue, pFrames(i).GetValue(key)
             Exit Function
@@ -133,7 +133,7 @@ End Function
 ' SetValue: write to the first frame where key exists (top->bottom). Otherwise put into top frame.
 Public Sub SetValue(key As String, val As Variant)
     Dim i As Long
-    For i = pFrames.Count To 1 Step -1
+    For i = pFrames.count To 1 Step -1
         If pFrames(i).Exists(key) Then
             pFrames(i).SetValue key, val
             Exit Sub
@@ -142,7 +142,7 @@ Public Sub SetValue(key As String, val As Variant)
     Next i
     ' not found -> set in top frame
     Dim top As Map
-    Set top = pFrames(pFrames.Count)
+    Set top = pFrames(pFrames.count)
     top.SetValue key, val
 End Sub
 
@@ -151,7 +151,7 @@ End Sub
 ' Use this for binding function parameters / declaring locals.
 Public Sub SetLocalValue(key As String, val As Variant)
     Dim top As Map
-    Set top = pFrames(pFrames.Count)
+    Set top = pFrames(pFrames.count)
     top.SetValue key, val
 End Sub
 
@@ -160,7 +160,7 @@ Public Function Clone() As ScopeStack
     Dim s As New ScopeStack
     Dim arr As New Collection
     Dim i As Long
-    For i = 1 To pFrames.Count
+    For i = 1 To pFrames.count
         arr.Add pFrames(i).Clone
     Next i
     s.LoadRaw arr

@@ -36,14 +36,14 @@ End Property
 
 ' Node helpers (Map-based)
 Private Function MakeNode(nodeType As String) As Map
-    Dim m As New Map
-    m.Add "type", nodeType
-    Set MakeNode = m
+    Dim M As New Map
+    M.Add "type", nodeType
+    Set MakeNode = M
 End Function
 
 Public Sub RunProgramByIndex(idx As Long)
     GLOBALS_.ASF_InitGlobals
-    If idx < 1 Or idx > GLOBALS_.gPrograms.Count Then Exit Sub
+    If idx < 1 Or idx > GLOBALS_.gPrograms.count Then Exit Sub
     Dim p As Variant: p = GLOBALS_.gPrograms(idx)
     Dim progName As String: progName = p(0)
     Dim stmts As Collection: Set stmts = p(1)
@@ -55,8 +55,9 @@ Public Sub RunProgramByIndex(idx As Long)
     progScope.Push
     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "RUN Program: " & progName
     Dim i As Long
-    For i = 1 To stmts.Count
+    For i = 1 To stmts.count
         Dim ctrl As String
+'        ctrl = ExecuteStmtNode(stmts(i), progScope)
         ctrl = ExecuteStmtNode(stmts(i), progScope)
         If ctrl = "RETURN" Then
             vAssignment OUTPUT__, progScope.GetValue("__return")
@@ -77,12 +78,12 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
         Case "Print"
             Dim args As Collection: Set args = node.GetValue("args")
             Dim outParts As New Collection
-            For i = 1 To args.Count
+            For i = 1 To args.count
                 Dim v As Variant: vAssignment v, EvalExprNode(args(i), progScope)
                 outParts.Add ValueToStringForPrint(v)
             Next i
             Dim sb As String: sb = ""
-            For i = 1 To outParts.Count
+            For i = 1 To outParts.count
                 If i > 1 Then sb = sb & ", "
                 sb = sb & outParts(i)
             Next i
@@ -222,12 +223,12 @@ Private Function EvalArrayNode(node As Map, progScope As ScopeStack) As Variant
     Dim items As Collection: Set items = node.GetValue("items")
     Dim arr As Variant
     Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
-    If items Is Nothing Or items.Count = 0 Then
+    If items Is Nothing Or items.count = 0 Then
         ReDim arr(optionBase To optionBase)
     Else
-        ReDim arr(optionBase To optionBase + items.Count - 1)
+        ReDim arr(optionBase To optionBase + items.count - 1)
         Dim ii As Long
-        For ii = 1 To items.Count
+        For ii = 1 To items.count
             vAssignment arr(optionBase + ii - 1), EvalExprNode(items(ii), progScope)
         Next ii
     End If
@@ -278,7 +279,7 @@ Private Function ResolvePath(node As Map, progScope As ScopeStack, Optional forA
             Dim current As Variant
             vAssignment current, progScope.GetValue(CStr(parts(1)))
             Dim ii As Long
-            For ii = 2 To parts.Count - IIf(forAssign, 1, 0)
+            For ii = 2 To parts.count - IIf(forAssign, 1, 0)
                 Dim part As String: part = parts(ii)
                 If left(part, 1) = "[" Then
                     Dim indexStr As String: indexStr = Mid(part, 2, Len(part) - 2)
@@ -294,8 +295,8 @@ Private Function ResolvePath(node As Map, progScope As ScopeStack, Optional forA
             Next ii
             If forAssign Then
                 res.SetValue "container", current
-                res.SetValue "key", parts(parts.Count)
-                res.SetValue "kind", IIf(left(parts(parts.Count), 1) = "[", "index", "prop")
+                res.SetValue "key", parts(parts.count)
+                res.SetValue "kind", IIf(left(parts(parts.count), 1) = "[", "index", "prop")
             Else
                 res.SetValue "value", current
             End If
@@ -385,7 +386,7 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     If IsTruthy(EvalExprNode(condNode, progScope)) Then
         Dim thenStmts As Collection: Set thenStmts = node.GetValue("then")
         Dim si As Long
-        For si = 1 To thenStmts.Count
+        For si = 1 To thenStmts.count
             Dim ctrl As String: ctrl = ExecuteStmtNode(thenStmts(si), progScope)
             If ctrl <> "" Then ExecIfNode = ctrl: Exit Function
         Next si
@@ -395,11 +396,11 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     Dim elseifConds As Collection: Set elseifConds = node.GetValue("elseif_conds")
     Dim elseifBlocks As Collection: Set elseifBlocks = node.GetValue("elseif_blocks")
     Dim idx As Long
-    For idx = 1 To elseifConds.Count
+    For idx = 1 To elseifConds.count
         If IsTruthy(EvalExprNode(elseifConds(idx), progScope)) Then
             Dim bl As Collection: Set bl = elseifBlocks(idx)
             Dim si2 As Long
-            For si2 = 1 To bl.Count
+            For si2 = 1 To bl.count
                 Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(bl(si2), progScope)
                 If ctrl2 <> "" Then ExecIfNode = ctrl2: Exit Function
             Next si2
@@ -410,7 +411,7 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     If node.GetValue("hasElse") Then
         Dim els As Collection: Set els = node.GetValue("else")
         Dim ee As Long
-        For ee = 1 To els.Count
+        For ee = 1 To els.count
             Dim ctrl3 As String: ctrl3 = ExecuteStmtNode(els(ee), progScope)
             If ctrl3 <> "" Then ExecIfNode = ctrl3: Exit Function
         Next ee
@@ -449,7 +450,7 @@ ForStart:
     If Not condOk Then GoTo ForEnd
 
     Dim s As Long
-    For s = 1 To body.Count
+    For s = 1 To body.count
         Dim ctrl As String: ctrl = ExecuteStmtNode(body(s), progScope)
         If ctrl = "BREAK" Then GoTo ForEnd
         If ctrl = "CONTINUE" Then Exit For
@@ -474,9 +475,9 @@ End Function
 
 ' Helper to wrap an expression node into an ExprStmt node
 Private Function MakeNodeExprStmt(expr As Map) As Map
-    Dim m As Map: Set m = MakeNode("ExprStmt")
-    m.SetValue "expr", expr
-    Set MakeNodeExprStmt = m
+    Dim M As Map: Set M = MakeNode("ExprStmt")
+    M.SetValue "expr", expr
+    Set MakeNodeExprStmt = M
 End Function
 
 ' ---------------------
@@ -489,7 +490,7 @@ Private Function ExecWhileNode(node As Map, progScope As ScopeStack) As String
 WhileStart:
     If Not IsTruthy(EvalExprNode(condNode, progScope)) Then GoTo WhileEnd
     Dim i As Long
-    For i = 1 To body.Count
+    For i = 1 To body.count
         Dim ctrl As String: ctrl = ExecuteStmtNode(body(i), progScope)
         If ctrl = "BREAK" Then GoTo WhileEnd
         If ctrl = "CONTINUE" Then Exit For
@@ -508,7 +509,7 @@ Private Function ExecTryCatchNode(node As Map, progScope As ScopeStack) As Strin
     On Error GoTo TryErr
     Dim tryStmts As Collection: Set tryStmts = node.GetValue("try")
     Dim i As Long
-    For i = 1 To tryStmts.Count
+    For i = 1 To tryStmts.count
         Dim ctrl As String: ctrl = ExecuteStmtNode(tryStmts(i), progScope)
         If ctrl = "RETURN" Or ctrl = "ERR" Then
             ExecTryCatchNode = ctrl
@@ -524,7 +525,7 @@ TryErr:
     Dim catchStmts As Collection: Set catchStmts = node.GetValue("catch")
     If Not catchStmts Is Nothing Then
         Dim j As Long
-        For j = 1 To catchStmts.Count
+        For j = 1 To catchStmts.count
             Dim cctrl As String: cctrl = ExecuteStmtNode(catchStmts(j), progScope)
             If cctrl = "RETURN" Or cctrl = "ERR" Then ExecTryCatchNode = cctrl: Exit Function
         Next j
@@ -540,14 +541,14 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
     Dim cases As Collection: Set cases = node.GetValue("cases")
     Dim i As Long
     Dim match As Boolean
-    For i = 1 To cases.Count
+    For i = 1 To cases.count
         Dim pair As Collection: Set pair = cases(i)
         Dim caseExpr As Map: Set caseExpr = pair(1)
         Dim blockStmts As Collection: Set blockStmts = pair(2)
         match = (EvalExprNode(caseExpr, progScope) = switchVal)
         If match Then
             Dim s As Long
-            For s = 1 To blockStmts.Count
+            For s = 1 To blockStmts.count
                 Dim ctrl As String: ctrl = ExecuteStmtNode(blockStmts(s), progScope)
                 If ctrl = "BREAK" Then ExecSwitchNode = "": Exit Function
                 If ctrl = "RETURN" Or ctrl = "ERR" Then ExecSwitchNode = ctrl: Exit Function
@@ -558,7 +559,7 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
         Dim defBlk As Collection: Set defBlk = node.GetValue("default")
         If Not defBlk Is Nothing Then
             Dim d As Long
-            For d = 1 To defBlk.Count
+            For d = 1 To defBlk.count
                 Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(defBlk(d), progScope)
                 If ctrl2 = "BREAK" Then ExecSwitchNode = "": Exit Function
                 If ctrl2 = "RETURN" Or ctrl2 = "ERR" Then ExecSwitchNode = ctrl2: Exit Function
@@ -616,7 +617,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim valNode As Map
             Dim pair As Collection
             Dim key As String
-            For pi = 1 To items.Count
+            For pi = 1 To items.count
                 Set pair = items(pi)
                 key = CStr(pair(1))
                 Set valNode = pair(2)
@@ -784,7 +785,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim evaluated As Collection
             Set evaluated = New Collection
             Dim k As Long
-            For k = 1 To argsColl.Count
+            For k = 1 To argsColl.count
                 evaluated.Add EvalExprNode(argsColl(k), progScope)
             Next k
 
@@ -923,7 +924,7 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
     If GLOBALS_.gFuncParams.Exists(fname) Then
         Dim pa As Variant: pa = GLOBALS_.gFuncParams.GetValue(fname)
         For i = LBound(pa) To UBound(pa)
-            If i - LBound(pa) + 1 <= args.Count Then
+            If i - LBound(pa) + 1 <= args.count Then
                 callScope.SetLocalValue CStr(pa(i)), args(i - LBound(pa) + 1)
             Else
                 callScope.SetLocalValue CStr(pa(i)), Empty
@@ -932,7 +933,7 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
     End If
 
     Dim stmts As Collection: Set stmts = p(1)
-    For i = 1 To stmts.Count
+    For i = 1 To stmts.count
         Dim ctrl As String: ctrl = ExecuteStmtNode(stmts(i), callScope)
         If ctrl = "RETURN" Then
             CallFuncByIndex_AST = callScope.GetValue("__return")
@@ -1049,27 +1050,27 @@ Private Function ValueToStringWithCtx(v As Variant, visited As Collection, depth
             Case "Map"
                 ' cycle detection by object identity
                 Dim i As Long
-                For i = 1 To visited.Count
+                For i = 1 To visited.count
                     If visited(i) Is v Then
                         ValueToStringWithCtx = "[Circular]": Exit Function
                     End If
                 Next i
                 visited.Add v
                 ValueToStringWithCtx = MapToString(v, visited, depth + 1)
-                visited.Remove visited.Count
+                visited.Remove visited.count
                 Exit Function
 
             Case "Collection"
                 ' cycle detection
                 Dim j As Long
-                For j = 1 To visited.Count
+                For j = 1 To visited.count
                     If visited(j) Is v Then
                         ValueToStringWithCtx = "[Circular]": Exit Function
                     End If
                 Next j
                 visited.Add v
                 ValueToStringWithCtx = CollectionToString(v, visited, depth + 1)
-                visited.Remove visited.Count
+                visited.Remove visited.count
                 Exit Function
 
             Case Else
@@ -1091,10 +1092,10 @@ ErrHandler:
 End Function
 
 ' Convert Map -> string
-Private Function MapToString(m As Variant, visited As Collection, depth As Long) As String
+Private Function MapToString(M As Variant, visited As Collection, depth As Long) As String
     On Error GoTo ErrHandler
-    Dim keys As Collection: Set keys = m.keys
-    Dim kcnt As Long: kcnt = keys.Count
+    Dim keys As Collection: Set keys = M.keys
+    Dim kcnt As Long: kcnt = keys.count
 
     If kcnt = 0 Then
         MapToString = "{}": Exit Function
@@ -1107,7 +1108,7 @@ Private Function MapToString(m As Variant, visited As Collection, depth As Long)
         Dim i As Long
         For i = 1 To kcnt
             Dim key As String: key = CStr(keys(i))
-            Dim val As Variant: val = m.GetValue(key)
+            Dim val As Variant: val = M.GetValue(key)
             parts(i) = CStr(key) & ": " & ValueToStringWithCtx(val, visited, depth)
         Next i
         MapToString = "{ " & Join(parts, ", ") & " }"
@@ -1123,7 +1124,7 @@ Private Function MapToString(m As Variant, visited As Collection, depth As Long)
     Dim kk As Variant
     For Each kk In keys
         If Not first Then sb = sb & vbCrLf
-        sb = sb & innerIndent & CStr(kk) & ": " & ValueToStringWithCtx(m.GetValue(CStr(kk)), visited, depth + 1)
+        sb = sb & innerIndent & CStr(kk) & ": " & ValueToStringWithCtx(M.GetValue(CStr(kk)), visited, depth + 1)
         first = False
     Next kk
     sb = sb & vbCrLf & indent & "}"
@@ -1138,7 +1139,7 @@ End Function
 ' Convert Collection -> string (treat as list)
 Private Function CollectionToString(col As Variant, visited As Collection, depth As Long) As String
     On Error GoTo ErrHandler
-    Dim n As Long: n = col.Count
+    Dim n As Long: n = col.count
     If n = 0 Then CollectionToString = "[]": Exit Function
     If n <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
         Dim tmp() As String: ReDim tmp(1 To n)
@@ -1214,14 +1215,14 @@ Private Function ObjectToString(obj As Variant, visited As Collection, depth As 
     Set tryKeys = obj.keys
     ' if successful, treat as Map
     Dim i As Long
-    For i = 1 To visited.Count
+    For i = 1 To visited.count
         If visited(i) Is obj Then
             ObjectToString = "[Circular]": Exit Function
         End If
     Next i
     visited.Add obj
     ObjectToString = MapToString(obj, visited, depth)
-    visited.Remove visited.Count
+    visited.Remove visited.count
     Exit Function
 
 Fallback2:
@@ -1252,14 +1253,14 @@ Private Function EvalVBExpressionWithScope(expr As String, progScope As ScopeSta
     
          ' Inject variables from progScope (shadowing: global frames first, then locals)
          Dim frame As Variant
-         Dim m As Map
+         Dim M As Map
          Dim keyCol As Collection
          Dim key As Variant
          For Each frame In progScope.Raw
-             Set m = frame
-             Set keyCol = m.keys
+             Set M = frame
+             Set keyCol = M.keys
              For Each key In keyCol
-                 .VarValue(CStr(key)) = m.GetValue(CStr(key))
+                 .VarValue(CStr(key)) = M.GetValue(CStr(key))
              Next key
          Next frame
     
@@ -1290,21 +1291,21 @@ Private Function EvalVBFunctionCall(fname As String, args As Collection, progSco
 
      ' Seed evaluator with ASF scope variables
      Dim frame As Variant
-     Dim m As Map
+     Dim M As Map
      Dim keyCol As Collection
      Dim key As Variant
      For Each frame In progScope.Raw
-         Set m = frame
-         Set keyCol = m.keys
+         Set M = frame
+         Set keyCol = M.keys
          For Each key In keyCol
-             exprEval.VarValue(CStr(key)) = m.GetValue(CStr(key))
+             exprEval.VarValue(CStr(key)) = M.GetValue(CStr(key))
          Next key
      Next frame
 
      ' Inject arguments as temporary variables: __asf_vbarg_1, __asf_vbarg_2, ...
      Dim i As Long
      Dim tmpNames As New Collection
-     For i = 1 To args.Count
+     For i = 1 To args.count
          Dim tname As String: tname = "__asf_vbarg_" & CStr(i)
          tmpNames.Add tname
          exprEval.VarValue(tname) = args(i)
@@ -1312,7 +1313,7 @@ Private Function EvalVBFunctionCall(fname As String, args As Collection, progSco
 
      ' build call string referencing temp names
      Dim callStr As String: callStr = fname & "("
-     For i = 1 To tmpNames.Count
+     For i = 1 To tmpNames.count
          If i > 1 Then callStr = callStr & ","
          callStr = callStr & tmpNames(i)
      Next i
@@ -1360,7 +1361,7 @@ End Function
      If fc Then
          For Each elm In pa
              i = i + 1
-             If i <= evaluatedArgs.Count Then
+             If i <= evaluatedArgs.count Then
                  env.SetLocalValue CStr(elm), evaluatedArgs(i)
              Else
                  env.SetLocalValue CStr(elm), Empty
@@ -1377,7 +1378,7 @@ End Function
      Dim stmts As Collection: Set stmts = closureMap.GetValue("body")
      Dim ctrl As String
      Dim stmtIdx As Long
-     For stmtIdx = 1 To stmts.Count
+     For stmtIdx = 1 To stmts.count
          ctrl = ExecuteStmtNode(stmts(stmtIdx), env)
          If ctrl = "RETURN" Then
              vAssignment CallClosure, env.GetValue("__return")
@@ -1409,23 +1410,6 @@ Private Sub HandleAssignment(left As Map, ByVal rval As Variant, progScope As Sc
             progScope.SetValue CStr(key), rval
         Case "prop"
             If TypeName(container) <> "Map" Then
-'                Dim baseVariable As String
-'                Dim pObject As Variant
-'                Dim keys As New Collection
-'                Dim i As Long
-'                vAssignment pObject, lval("parentObj")
-'                Do While pObject.Exists("parentObj")
-'                    keys.Add pObject("key")
-'                    vAssignment pObject, pObject("parentObj")
-'                    If Not pObject.Exists("parentKey") Then
-'                        Exit Do
-'                    End If
-'                Loop
-'                baseVariable = pObject("key")
-'                vAssignment pObject, container.GetValue(baseVariable)
-'                For i = keys.Count To 2 Step -1
-'                    vAssignment pObject, pObject.GetValue(keys(i))
-'                Next
                 Dim tValue As Variant
                 vAssignment tValue, ResolveIndexProp(lval)
                 tValue.SetValue CStr(key), rval
@@ -1496,7 +1480,7 @@ Private Function ResolveIndexProp(ByRef lval) As Variant
     baseVariable = pObject("key")
     Dim container As Variant: vAssignment container, lval("container")
     vAssignment pObject, container.GetValue(baseVariable)
-    For i = keys.Count To 2 Step -1
+    For i = keys.count To 2 Step -1
         vAssignment pObject, pObject.GetValue(keys(i))
     Next
     vAssignment ResolveIndexProp, pObject(keys(1))
