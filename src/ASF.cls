@@ -28,6 +28,9 @@ End Function
 Public Function GetGlobals()
     Set GetGlobals = GLOBALS_
 End Function
+Public Function SetGlobals(aGlobals As Globals)
+    Set GLOBALS_ = aGlobals
+End Function
 Private Sub INIT_()
     Set GLOBALS_ = New Globals
     GLOBALS_.ASF_InitGlobals
