@@ -102,8 +102,22 @@ Tokenize_MainLoop:
                 GoTo Tokenize_SkipToLoopEnd
             Case "<", ">"
                 Dim two As String
+                Dim three As String
                 If i < n Then two = Mid$(src, i, 2) Else two = ""
-                If two = ">=" Or two = "<=" Then toks.Add Array("OP", two): i = i + 2 Else toks.Add Array("OP", ch): i = i + 1
+                If two = ">=" Or two = "<=" Then
+                    toks.Add Array("OP", two): i = i + 2
+                Else
+                    If i < n Then three = Mid$(src, i, 3) Else three = ""
+                    If three = "<<=" Or three = ">>=" Then 'Support for compound shift assignment
+                        toks.Add Array("OP", three): i = i + 3
+                    Else
+                        If two = "<<" Or two = ">>" Then 'Support for eleft and right shifts
+                            toks.Add Array("OP", two): i = i + 2
+                        Else
+                            toks.Add Array("OP", ch): i = i + 1
+                        End If
+                    End If
+                End If
                 GoTo Tokenize_SkipToLoopEnd
             Case "="
                 If i < n And Mid$(src, i + 1, 1) = "=" Then toks.Add Array("OP", "=="): i = i + 2 Else toks.Add Array("OP", "="): i = i + 1
