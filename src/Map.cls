@@ -25,10 +25,10 @@ Private Sub Class_Initialize()
 End Sub
 
 Private Sub BufferInit()
-    pItems.Capacity = 512
+    pItems.Capacity = 64
     pItems.index = -1
     ReDim pItems.Storage(0 To pItems.Capacity - 1)
-    pKeys.Capacity = 512
+    pKeys.Capacity = 64
     pKeys.index = -1
     ReDim pKeys.Storage(0 To pKeys.Capacity - 1)
 End Sub

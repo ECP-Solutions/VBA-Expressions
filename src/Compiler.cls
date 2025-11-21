@@ -480,7 +480,7 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
             End If
             ' compound assignment operators we support
             Select Case opv
-                Case "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|="
+                Case "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "<<=", ">>="
                     assignPos = ii
                     compoundOp = opv
                     Exit For
@@ -721,9 +721,32 @@ Private Function ParseRelationalNode(types() As String, vals() As Variant, n As 
     Dim right_ As Map
     Dim node As Map
     Dim op As String
-    Set left_ = ParseAddNode(types, vals, n, idx)
+    Set left_ = ParseShiftNode(types, vals, n, idx)
     Do While idx < n
         If Not (types(idx) = "OP" And (vals(idx) = "<" Or vals(idx) = ">" Or vals(idx) = "<=" Or vals(idx) = ">=")) Then Exit Do
+        op = vals(idx)
+        idx = idx + 1
+        Set right_ = ParseShiftNode(types, vals, n, idx)
+        Set node = MakeNode("Binary")
+        node.SetValue "op", op
+        node.SetValue "left", left_.Clone
+        node.SetValue "right", right_.Clone
+        Set left_ = node
+    Loop
+    Set ParseRelationalNode = left_.Clone
+    Set left_ = Nothing
+    Set right_ = Nothing
+    Set node = Nothing
+End Function
+
+Private Function ParseShiftNode(types() As String, vals() As Variant, n As Long, ByRef idx As Long) As Map
+    Dim left_ As Map
+    Dim right_ As Map
+    Dim node As Map
+    Dim op As String
+    Set left_ = ParseAddNode(types, vals, n, idx)
+    Do While idx < n
+        If Not (types(idx) = "OP" And (vals(idx) = "<<" Or vals(idx) = ">>")) Then Exit Do
         op = vals(idx)
         idx = idx + 1
         Set right_ = ParseAddNode(types, vals, n, idx)
@@ -733,7 +756,7 @@ Private Function ParseRelationalNode(types() As String, vals() As Variant, n As 
         node.SetValue "right", right_.Clone
         Set left_ = node
     Loop
-    Set ParseRelationalNode = left_.Clone
+    Set ParseShiftNode = left_.Clone
     Set left_ = Nothing
     Set right_ = Nothing
     Set node = Nothing
