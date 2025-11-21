@@ -57,7 +57,6 @@ Public Sub RunProgramByIndex(idx As Long)
     Dim i As Long
     For i = 1 To stmts.count
         Dim ctrl As String
-'        ctrl = ExecuteStmtNode(stmts(i), progScope)
         ctrl = ExecuteStmtNode(stmts(i), progScope)
         If ctrl = "RETURN" Then
             vAssignment OUTPUT__, progScope.GetValue("__return")
@@ -878,6 +877,8 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                     Case ">": vAssignment tmpResult, (lop > rop)
                     Case "<=": vAssignment tmpResult, (lop <= rop)
                     Case ">=": vAssignment tmpResult, (lop >= rop)
+                    Case "<<": vAssignment tmpResult, lshift(lop, rop)
+                    Case ">>": vAssignment tmpResult, rshift(lop, rop)
                     Case Else
                         vAssignment tmpResult, Empty
                 End Select
@@ -964,38 +965,28 @@ Private Function SafeAdd(a As Variant, b As Variant) As Variant
     If IsNumeric(a) And IsNumeric(b) Then SafeAdd = a + b Else SafeAdd = CStr(a) & CStr(b)
 End Function
 
-'Private Function ValueToStringForPrint(v As Variant) As String
-'    Dim ub As Long, s As String, i As Long
-'    If Not IsArray(v) Then
-'        If IsNull(v) Then ValueToStringForPrint = "NULL": Exit Function
-'        If IsEmpty(v) Then ValueToStringForPrint = "": Exit Function
-'        ' pretty-print Map objects as {k: v, ...}
-'        If TypeName(v) = "Map" Then
-'            Dim outMap As String: outMap = "{"
-'            Dim keysCol As Collection
-'            Set keysCol = v.keys
-'            Dim kk As Long
-'            For kk = 1 To keysCol.Count
-'                If kk > 1 Then outMap = outMap & ", "
-'                Dim kname As String: kname = CStr(keysCol(kk))
-'                Dim kval As Variant: kval = v.GetValue(kname)
-'                outMap = outMap & kname & ": " & ValueToStringForPrint(kval)
-'            Next kk
-'            outMap = outMap & "}"
-'            ValueToStringForPrint = outMap
-'            Exit Function
-'        End If
-'        ValueToStringForPrint = CStr(v): Exit Function
-'    End If
-'    ub = UBound(v)
-'    If ub < 0 Then ValueToStringForPrint = "[]": Exit Function
-'    s = "["
-'    For i = LBound(v) To ub
-'        If i > LBound(v) Then s = s & ", "
-'        s = s & CStr(v(i))
-'    Next i
-'    ValueToStringForPrint = s & "]"
-'End Function
+Private Function lshift(a As Variant, b As Variant) As Variant 'a<<b
+    If IsNumeric(a) And IsNumeric(b) Then
+        lshift = Floor(Floor(a) * (2 ^ Abs(Floor(b))))
+    Else
+        Exit Function
+    End If
+End Function
+
+Private Function rshift(a As Variant, b As Variant) As Variant 'a>>b
+    If IsNumeric(a) And IsNumeric(b) Then
+        rshift = Floor(Floor(a) / (2 ^ Abs(Floor(b))))
+    Else
+        Exit Function
+    End If
+End Function
+
+Private Function Floor(ByRef value As Variant) As Long
+    Dim tmpResult As Double
+    tmpResult = CDbl(Fix(value))
+    Floor = CLng(tmpResult + ((CDbl(value) <> tmpResult) And (CDbl(value) < 0)))
+End Function
+
 Private Function ValueToStringForPrint(v As Variant) As String
     Dim visited As New Collection
     ValueToStringForPrint = ValueToStringWithCtx(v, visited, 0)
