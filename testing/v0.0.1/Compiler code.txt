@@ -1107,7 +1107,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         Set currentNode = indexNode
                         posS = posClose + 1
                     Else
-                        ' unknown char — stop parsing the collapsed form
+                        ' unknown char Â— stop parsing the collapsed form
                         Exit Do
                     End If
                 Loop
