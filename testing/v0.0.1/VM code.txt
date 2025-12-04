@@ -68,7 +68,7 @@ End Function
 
 Public Sub RunProgramByIndex(idx As Long)
     GLOBALS_.ASF_InitGlobals
-    If idx < 1 Or idx > GLOBALS_.gPrograms.count Then Exit Sub
+    If idx < 1 Or idx > GLOBALS_.gPrograms.Count Then Exit Sub
     Dim p As Variant: p = GLOBALS_.gPrograms(idx)
     Dim progName As String: progName = p(0)
     Dim stmts As Collection: Set stmts = p(1)
@@ -79,14 +79,14 @@ Public Sub RunProgramByIndex(idx As Long)
     progScope.SetValue "__option_base", optionBase
     progScope.Push
     If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "RUN Program: " & progName
-    If GLOBALS_.gProgramsBytecode.count Then
-        If idx >= 1 And idx <= GLOBALS_.gProgramsBytecode.count Then
+    If GLOBALS_.gProgramsBytecode.Count Then
+        If idx >= 1 And idx <= GLOBALS_.gProgramsBytecode.Count Then
             Me.RunCompactBytecodeProgram idx, progScope, verbose
             Exit Sub
         End If
     End If
     Dim i As Long
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         Dim ctrl As String
         ctrl = ExecuteStmtNode(stmts(i), progScope)
         If ctrl = "RETURN" Then
@@ -108,12 +108,12 @@ Private Function ExecuteStmtNode(node As Map, progScope As ScopeStack) As String
         Case "Print"
             Dim args As Collection: Set args = node.GetValue("args")
             Dim outParts As New Collection
-            For i = 1 To args.count
+            For i = 1 To args.Count
                 Dim v As Variant: vAssignment v, EvalExprNode(args(i), progScope)
                 outParts.Add ValueToStringForPrint(v)
             Next i
             Dim sb As String: sb = ""
-            For i = 1 To outParts.count
+            For i = 1 To outParts.Count
                 If i > 1 Then sb = sb & ", "
                 sb = sb & outParts(i)
             Next i
@@ -253,12 +253,12 @@ Private Function EvalArrayNode(node As Map, progScope As ScopeStack) As Variant
     Dim items As Collection: Set items = node.GetValue("items")
     Dim arr As Variant
     Dim optionBase As Long: optionBase = progScope.GetValue("__option_base")
-    If items Is Nothing Or items.count = 0 Then
+    If items Is Nothing Or items.Count = 0 Then
         ReDim arr(optionBase To optionBase)
     Else
-        ReDim arr(optionBase To optionBase + items.count - 1)
+        ReDim arr(optionBase To optionBase + items.Count - 1)
         Dim ii As Long
-        For ii = 1 To items.count
+        For ii = 1 To items.Count
             vAssignment arr(optionBase + ii - 1), EvalExprNode(items(ii), progScope)
         Next ii
     End If
@@ -309,7 +309,7 @@ Private Function ResolvePath(node As Map, progScope As ScopeStack, Optional forA
             Dim current As Variant
             vAssignment current, progScope.GetValue(CStr(parts(1)))
             Dim ii As Long
-            For ii = 2 To parts.count - IIf(forAssign, 1, 0)
+            For ii = 2 To parts.Count - IIf(forAssign, 1, 0)
                 Dim part As String: part = parts(ii)
                 If left(part, 1) = "[" Then
                     Dim indexStr As String: indexStr = Mid(part, 2, Len(part) - 2)
@@ -325,8 +325,8 @@ Private Function ResolvePath(node As Map, progScope As ScopeStack, Optional forA
             Next ii
             If forAssign Then
                 res.SetValue "container", current
-                res.SetValue "key", parts(parts.count)
-                res.SetValue "kind", IIf(left(parts(parts.count), 1) = "[", "index", "prop")
+                res.SetValue "key", parts(parts.Count)
+                res.SetValue "kind", IIf(left(parts(parts.Count), 1) = "[", "index", "prop")
             Else
                 res.SetValue "value", current
             End If
@@ -416,7 +416,7 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     If IsTruthy(EvalExprNode(condNode, progScope)) Then
         Dim thenStmts As Collection: Set thenStmts = node.GetValue("then")
         Dim si As Long
-        For si = 1 To thenStmts.count
+        For si = 1 To thenStmts.Count
             Dim ctrl As String: ctrl = ExecuteStmtNode(thenStmts(si), progScope)
             If ctrl <> "" Then ExecIfNode = ctrl: Exit Function
         Next si
@@ -426,11 +426,11 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     Dim elseifConds As Collection: Set elseifConds = node.GetValue("elseif_conds")
     Dim elseifBlocks As Collection: Set elseifBlocks = node.GetValue("elseif_blocks")
     Dim idx As Long
-    For idx = 1 To elseifConds.count
+    For idx = 1 To elseifConds.Count
         If IsTruthy(EvalExprNode(elseifConds(idx), progScope)) Then
             Dim bl As Collection: Set bl = elseifBlocks(idx)
             Dim si2 As Long
-            For si2 = 1 To bl.count
+            For si2 = 1 To bl.Count
                 Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(bl(si2), progScope)
                 If ctrl2 <> "" Then ExecIfNode = ctrl2: Exit Function
             Next si2
@@ -441,7 +441,7 @@ Private Function ExecIfNode(node As Map, progScope As ScopeStack) As String
     If node.GetValue("hasElse") Then
         Dim els As Collection: Set els = node.GetValue("else")
         Dim ee As Long
-        For ee = 1 To els.count
+        For ee = 1 To els.Count
             Dim ctrl3 As String: ctrl3 = ExecuteStmtNode(els(ee), progScope)
             If ctrl3 <> "" Then ExecIfNode = ctrl3: Exit Function
         Next ee
@@ -464,10 +464,10 @@ Private Function ExecForNode(node As Map, progScope As ScopeStack) As String
         initType = initNode.GetValue("type")
         Select Case initType
             Case "Assign", "Print", "If", "For", "While", "TryCatch", "Switch", "Return", "Break", "Continue", "ExprStmt"
-                ' Already a statement node Â— execute directly so side-effects happen.
+                ' Already a statement node — execute directly so side-effects happen.
                 ExecuteStmtNode initNode, progScope
             Case Else
-                ' Expression node Â— wrap into ExprStmt for side-effect evaluation.
+                ' Expression node — wrap into ExprStmt for side-effect evaluation.
                 ExecuteStmtNode MakeNodeExprStmt(initNode), progScope
         End Select
     End If
@@ -480,7 +480,7 @@ ForStart:
     If Not condOk Then GoTo ForEnd
 
     Dim s As Long
-    For s = 1 To body.count
+    For s = 1 To body.Count
         Dim ctrl As String: ctrl = ExecuteStmtNode(body(s), progScope)
         If ctrl = "BREAK" Then GoTo ForEnd
         If ctrl = "CONTINUE" Then Exit For
@@ -520,7 +520,7 @@ Private Function ExecWhileNode(node As Map, progScope As ScopeStack) As String
 WhileStart:
     If Not IsTruthy(EvalExprNode(condNode, progScope)) Then GoTo WhileEnd
     Dim i As Long
-    For i = 1 To body.count
+    For i = 1 To body.Count
         Dim ctrl As String: ctrl = ExecuteStmtNode(body(i), progScope)
         If ctrl = "BREAK" Then GoTo WhileEnd
         If ctrl = "CONTINUE" Then Exit For
@@ -539,7 +539,7 @@ Private Function ExecTryCatchNode(node As Map, progScope As ScopeStack) As Strin
     On Error GoTo TryErr
     Dim tryStmts As Collection: Set tryStmts = node.GetValue("try")
     Dim i As Long
-    For i = 1 To tryStmts.count
+    For i = 1 To tryStmts.Count
         Dim ctrl As String: ctrl = ExecuteStmtNode(tryStmts(i), progScope)
         If ctrl = "RETURN" Or ctrl = "ERR" Then
             ExecTryCatchNode = ctrl
@@ -555,7 +555,7 @@ TryErr:
     Dim catchStmts As Collection: Set catchStmts = node.GetValue("catch")
     If Not catchStmts Is Nothing Then
         Dim j As Long
-        For j = 1 To catchStmts.count
+        For j = 1 To catchStmts.Count
             Dim cctrl As String: cctrl = ExecuteStmtNode(catchStmts(j), progScope)
             If cctrl = "RETURN" Or cctrl = "ERR" Then ExecTryCatchNode = cctrl: Exit Function
         Next j
@@ -571,14 +571,14 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
     Dim cases As Collection: Set cases = node.GetValue("cases")
     Dim i As Long
     Dim match As Boolean
-    For i = 1 To cases.count
+    For i = 1 To cases.Count
         Dim pair As Collection: Set pair = cases(i)
         Dim caseExpr As Map: Set caseExpr = pair(1)
         Dim blockStmts As Collection: Set blockStmts = pair(2)
         match = (EvalExprNode(caseExpr, progScope) = switchVal)
         If match Then
             Dim s As Long
-            For s = 1 To blockStmts.count
+            For s = 1 To blockStmts.Count
                 Dim ctrl As String: ctrl = ExecuteStmtNode(blockStmts(s), progScope)
                 If ctrl = "BREAK" Then ExecSwitchNode = "": Exit Function
                 If ctrl = "RETURN" Or ctrl = "ERR" Then ExecSwitchNode = ctrl: Exit Function
@@ -589,7 +589,7 @@ Private Function ExecSwitchNode(node As Map, progScope As ScopeStack) As String
         Dim defBlk As Collection: Set defBlk = node.GetValue("default")
         If Not defBlk Is Nothing Then
             Dim d As Long
-            For d = 1 To defBlk.count
+            For d = 1 To defBlk.Count
                 Dim ctrl2 As String: ctrl2 = ExecuteStmtNode(defBlk(d), progScope)
                 If ctrl2 = "BREAK" Then ExecSwitchNode = "": Exit Function
                 If ctrl2 = "RETURN" Or ctrl2 = "ERR" Then ExecSwitchNode = ctrl2: Exit Function
@@ -647,7 +647,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim valNode As Map
             Dim pair As Collection
             Dim key As String
-            For pi = 1 To items.count
+            For pi = 1 To items.Count
                 Set pair = items(pi)
                 key = CStr(pair(1))
                 Set valNode = pair(2)
@@ -677,7 +677,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim vval As Variant
             vAssignment vval, progScope.GetValue(vname)
 
-            ' If scope contains a non-empty value, return it Â— this covers closures
+            ' If scope contains a non-empty value, return it — this covers closures
             ' stored as Map/AST nodes (FuncLiteral/Closure/etc.).
             If Not IsEmpty(vval) Then
                 ' If it's a Map and looks like a function node, return as callable
@@ -697,7 +697,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                         End If
                     End If
                 End If
-                ' Not necessarily a function-like Map Â— still return stored value.
+                ' Not necessarily a function-like Map — still return stored value.
                 vAssignment tmpResult, vval
                 GoTo exitfun
             End If
@@ -729,7 +729,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                                 paramsCol.Add vbNullString
                             End If
                         ElseIf TypeName(paVar) = "Collection" Then
-                            ' already a collection Â— copy it
+                            ' already a collection — copy it
                             Dim it As Variant
                             For Each it In paVar
                                 paramsCol.Add it
@@ -744,7 +744,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                     pinfo = GLOBALS_.gPrograms(funcIdx)
                     If err.Number <> 0 Then
                         err.Clear
-                        ' fallback: no program info Â— return Empty
+                        ' fallback: no program info — return Empty
                         EvalExprNode = Empty
                         Exit Function
                     End If
@@ -772,7 +772,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             End If
             On Error GoTo 0
 
-            ' Not found Â— log and return Empty
+            ' Not found — log and return Empty
             If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vname & "' is undefined or not callable (returned Empty)."
             vAssignment tmpResult, Empty
             GoTo exitfun
@@ -815,7 +815,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim evaluated As Collection
             Set evaluated = New Collection
             Dim k As Long
-            For k = 1 To argsColl.count
+            For k = 1 To argsColl.Count
                 evaluated.Add EvalExprNode(argsColl(k), progScope)
             Next k
 
@@ -948,7 +948,7 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
     If GLOBALS_.gFuncParams.Exists(fname) Then
         Dim pa As Variant: pa = GLOBALS_.gFuncParams.GetValue(fname)
         For i = LBound(pa) To UBound(pa)
-            If i - LBound(pa) + 1 <= args.count Then
+            If i - LBound(pa) + 1 <= args.Count Then
                 callScope.SetLocalValue CStr(pa(i)), args(i - LBound(pa) + 1)
             Else
                 callScope.SetLocalValue CStr(pa(i)), Empty
@@ -957,7 +957,7 @@ Private Function CallFuncByIndex_AST(funcIdx As Long, args As Collection) As Var
     End If
 
     Dim stmts As Collection: Set stmts = p(1)
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         Dim ctrl As String: ctrl = ExecuteStmtNode(stmts(i), callScope)
         If ctrl = "RETURN" Then
             CallFuncByIndex_AST = callScope.GetValue("__return")
@@ -1064,27 +1064,27 @@ Private Function ValueToStringWithCtx(v As Variant, visited As Collection, depth
             Case "Map"
                 ' cycle detection by object identity
                 Dim i As Long
-                For i = 1 To visited.count
+                For i = 1 To visited.Count
                     If visited(i) Is v Then
                         ValueToStringWithCtx = "[Circular]": Exit Function
                     End If
                 Next i
                 visited.Add v
                 ValueToStringWithCtx = MapToString(v, visited, depth + 1)
-                visited.Remove visited.count
+                visited.Remove visited.Count
                 Exit Function
 
             Case "Collection"
                 ' cycle detection
                 Dim j As Long
-                For j = 1 To visited.count
+                For j = 1 To visited.Count
                     If visited(j) Is v Then
                         ValueToStringWithCtx = "[Circular]": Exit Function
                     End If
                 Next j
                 visited.Add v
                 ValueToStringWithCtx = CollectionToString(v, visited, depth + 1)
-                visited.Remove visited.count
+                visited.Remove visited.Count
                 Exit Function
 
             Case Else
@@ -1109,7 +1109,7 @@ End Function
 Private Function MapToString(M As Variant, visited As Collection, depth As Long) As String
     On Error GoTo ErrHandler
     Dim keyS As Collection: Set keyS = M.keyS
-    Dim kcnt As Long: kcnt = keyS.count
+    Dim kcnt As Long: kcnt = keyS.Count
 
     If kcnt = 0 Then
         MapToString = "{}": Exit Function
@@ -1153,7 +1153,7 @@ End Function
 ' Convert Collection -> string (treat as list)
 Private Function CollectionToString(col As Variant, visited As Collection, depth As Long) As String
     On Error GoTo ErrHandler
-    Dim n As Long: n = col.count
+    Dim n As Long: n = col.Count
     If n = 0 Then CollectionToString = "[]": Exit Function
     If n <= VTP_MAX_ITEMS_INLINE And depth <= 2 Then
         Dim tmp() As String: ReDim tmp(1 To n)
@@ -1229,14 +1229,14 @@ Private Function ObjectToString(obj As Variant, visited As Collection, depth As 
     Set tryKeys = obj.keyS
     ' if successful, treat as Map
     Dim i As Long
-    For i = 1 To visited.count
+    For i = 1 To visited.Count
         If visited(i) Is obj Then
             ObjectToString = "[Circular]": Exit Function
         End If
     Next i
     visited.Add obj
     ObjectToString = MapToString(obj, visited, depth)
-    visited.Remove visited.count
+    visited.Remove visited.Count
     Exit Function
 
 Fallback2:
@@ -1322,7 +1322,7 @@ End Function
      If fc Then
          For Each elm In pa
              i = i + 1
-             If i <= evaluatedArgs.count Then
+             If i <= evaluatedArgs.Count Then
                  env.SetLocalValue CStr(elm), evaluatedArgs(i)
              Else
                  env.SetLocalValue CStr(elm), Empty
@@ -1339,7 +1339,7 @@ End Function
      Dim stmts As Collection: Set stmts = closureMap.GetValue("body")
      Dim ctrl As String
      Dim stmtIdx As Long
-     For stmtIdx = 1 To stmts.count
+     For stmtIdx = 1 To stmts.Count
          ctrl = ExecuteStmtNode(stmts(stmtIdx), env)
          If ctrl = "RETURN" Then
              vAssignment CallClosure, env.GetValue("__return")
@@ -1441,7 +1441,7 @@ Private Function ResolveIndexProp(ByRef lval) As Variant
     baseVariable = pObject("key")
     Dim container As Variant: vAssignment container, lval("container")
     vAssignment pObject, container.GetValue(baseVariable)
-    For i = keyS.count To 2 Step -1
+    For i = keyS.Count To 2 Step -1
         vAssignment pObject, pObject.GetValue(keyS(i))
     Next
     vAssignment ResolveIndexProp, pObject(keyS(1))
@@ -1553,20 +1553,10 @@ Function GetElementMapFromIndexNode(indexNode As Map, progScope As ScopeStack) A
     End Select
 End Function
  ' ----------------- end LValue helpers -----------------
- ' -------------------- stack helpers --------------------
-Private Sub push_stack(stk As Collection, v As Variant)
-    stk.Add v
-End Sub
 
-Private Function pop_stack(stk As Collection) As Variant
-    If stk.count = 0 Then pop_stack = Empty: Exit Function
-    vAssignment pop_stack, stk(stk.count)
-    stk.Remove stk.count
-End Function
-
-Private Sub DoBinaryOp(op As String, stk As Collection)
-    Dim b As Variant: b = pop_stack(stk)
-    Dim a As Variant: a = pop_stack(stk)
+Private Sub DoBinaryOp(op As String, stk As ASFstack)
+    Dim b As Variant: b = stk.Pop()
+    Dim a As Variant: a = stk.Pop()
     Dim res As Variant
     Select Case op
         Case "+"
@@ -1588,10 +1578,10 @@ Private Sub DoBinaryOp(op As String, stk As Collection)
         Case "||": res = (IsTruthy(a) Or IsTruthy(b))
         Case Else: res = Null
     End Select
-    push_stack stk, res
+    stk.Push res
 End Sub
 
-Private Sub BytecodePrintHelper(stk As Collection, nArgs As Long)
+Private Sub BytecodePrintHelper(stk As ASFstack, nArgs As Long)
     If nArgs <= 0 Then
         If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "PRINT: "
         Debug.Print ""
@@ -1600,7 +1590,7 @@ Private Sub BytecodePrintHelper(stk As Collection, nArgs As Long)
     Dim tmp() As Variant: ReDim tmp(1 To nArgs)
     Dim i As Long
     For i = nArgs To 1 Step -1
-        tmp(i) = pop_stack(stk)
+        tmp(i) = stk.Pop()
     Next i
     Dim outS As String: outS = ""
     Dim visited__ As Collection
@@ -1615,7 +1605,7 @@ End Sub
 ' -------------------- compact bytecode runner --------------------
 Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, Optional verbose As Boolean = False)
     If Not IsObject(GLOBALS_.gProgramsBytecode) Then Exit Sub
-    If progIdx < 1 Or progIdx > GLOBALS_.gProgramsBytecode.count Then Exit Sub
+    If progIdx < 1 Or progIdx > GLOBALS_.gProgramsBytecode.Count Then Exit Sub
     Dim bcMap As Map: Set bcMap = GLOBALS_.gProgramsBytecode(progIdx)
     If bcMap Is Nothing Then Exit Sub
 
@@ -1636,7 +1626,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
             locals(ii) = Empty
         Next ii
     End If
-    Dim stk As New Collection
+    Dim stk As ASFstack: Set stk = New ASFstack
     Dim pc As Long: pc = 1
     Dim fIdx As Long
     Dim operand As Variant
@@ -1690,7 +1680,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
         vAssignment operand, args(pc)
         Select Case op
             Case OP_PUSH_CONST
-                push_stack stk, operand
+                stk.Push operand
                 pc = pc + 1
 
             Case OP_LOAD_FAST
@@ -1769,7 +1759,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     End If
                 End If
             
-                push_stack stk, v
+                stk.Push v
                 pc = pc + 1
 
             Case OP_STORE_FAST
@@ -1781,7 +1771,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
             
                 Dim valSF As Variant
                 valSF = Empty
-                If stk.count > 0 Then vAssignment valSF, pop_stack(stk)
+                If stk.Count > 0 Then vAssignment valSF, stk.Pop()
             
                 ' ensure locals exists and covers slotIdxSF
                 On Error Resume Next
@@ -1904,11 +1894,11 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 
             Case OP_LOAD_NAME
                 Dim vnm As Variant: vAssignment vnm, progScope.GetValue(CStr(operand))
-                push_stack stk, vnm
+                stk.Push vnm
                 pc = pc + 1
 
             Case OP_STORE_NAME
-                Dim vval As Variant: vAssignment vval, pop_stack(stk)
+                Dim vval As Variant: vAssignment vval, stk.Pop()
                 progScope.SetLocalValue CStr(operand), vval
                 pc = pc + 1
 
@@ -1923,8 +1913,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 On Error GoTo 0
             
                 If nItemsMA < 0 Then nItemsMA = 0
-                If stk.count < nItemsMA Then
-                    If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "VM: OP_MAKE_ARRAY - stack underflow. expected " & CStr(nItemsMA) & " items, have " & CStr(stk.count)
+                If stk.Count < nItemsMA Then
+                    If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "VM: OP_MAKE_ARRAY - stack underflow. expected " & CStr(nItemsMA) & " items, have " & CStr(stk.Count)
                 End If
             
                 ' Build a *plain* VBA Variant-array for the items.
@@ -1938,14 +1928,14 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     Dim j As Long
                     For j = nItemsMA To 1 Step -1
                         Dim valPop As Variant: valPop = Empty
-                        If stk.count > 0 Then vAssignment valPop, pop_stack(stk)
+                        If stk.Count > 0 Then vAssignment valPop, stk.Pop()
                         vAssignment tmpInner(j), valPop
                     Next j
                     vAssignment innerArr, tmpInner
                 End If
             
                 ' push the plain inner array (or Empty) onto stack
-                push_stack stk, innerArr
+                stk.Push innerArr
                 pc = pc + 1
 
             Case OP_PRINT
@@ -1954,12 +1944,12 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 pc = pc + 1
 
             Case OP_POP
-                Dim p_ As Variant: vAssignment p_, pop_stack(stk)
+                Dim p_ As Variant: vAssignment p_, stk.Pop()
                 pc = pc + 1
 
             Case OP_JUMP_IF_FALSE
                 Dim condVal As Variant
-                If stk.count > 0 Then vAssignment condVal, pop_stack(stk) Else condVal = Empty
+                If stk.Count > 0 Then vAssignment condVal, stk.Pop() Else condVal = Empty
                 Dim shouldJump As Boolean
                 shouldJump = Not IsTruthy(condVal)
                 If shouldJump Then
@@ -2002,7 +1992,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                             SyncLocalsToScope locals, symbols, progScope
                             lastSyncedVersion = localsVersion
                         End If
-                        push_stack stk, EvalExprNode(nodeObj_, progScope)
+                        stk.Push EvalExprNode(nodeObj_, progScope)
                         SyncScopeToLocals locals, symbols, progScope
                         localsVersion = localsVersion + 1
                         lastSyncedVersion = localsVersion
@@ -2023,7 +2013,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
 
                 ' Always pop the base (emitter pushes base before this op)
                 Dim poppedBaseLB As Variant: poppedBaseLB = Empty
-                If stk.count > 0 Then vAssignment poppedBaseLB, pop_stack(stk)
+                If stk.Count > 0 Then vAssignment poppedBaseLB, stk.Pop()
 
                 On Error Resume Next
                 If IsArray(operand) Then
@@ -2082,7 +2072,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                         ElseIf TypeName(parentContainerLB) = "Collection" Then
                             On Error Resume Next
                             Dim idcLB As Long: idcLB = CLng(indexValLB)
-                            If idcLB >= 1 And idcLB <= parentContainerLB.count Then
+                            If idcLB >= 1 And idcLB <= parentContainerLB.Count Then
                                 vAssignment parentObjLB, parentContainerLB(idcLB)
                             Else
                                 parentObjLB = Empty
@@ -2110,8 +2100,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                         vAssignment resolvedValLB, VM_GetPropertyValue(parentObjLB, propName)
                     End If
 
-                    push_stack stk, parentObjLB
-                    push_stack stk, resolvedValLB
+                    stk.Push parentObjLB
+                    stk.Push resolvedValLB
 
                     lastIndexBaseSlot = 0
                     lastIndexBaseName = ""
@@ -2135,8 +2125,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     vAssignment rvLB, VM_GetPropertyValue(poppedBaseLB, propName)
                 End If
 
-                push_stack stk, poppedBaseLB
-                push_stack stk, rvLB
+                stk.Push poppedBaseLB
+                stk.Push rvLB
 
                 lastIndexBaseSlot = 0
                 lastIndexBaseName = ""
@@ -2162,7 +2152,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
             
                 ' try consuming a popped base value if emitter pushed it
                 Dim poppedValV As Variant: poppedValV = Empty
-                If stk.count > 0 Then vAssignment poppedValV, pop_stack(stk)
+                If stk.Count > 0 Then vAssignment poppedValV, stk.Pop()
             
                 Dim outValV As Variant: vAssignment outValV, VM_GetPropertyValue(poppedValV, propNameV)
             
@@ -2232,7 +2222,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     lastIndexBaseName = ""
                 End If
             
-                push_stack stk, outValV
+                stk.Push outValV
                 pc = pc + 1
 
                 ' -----------------------
@@ -2262,16 +2252,16 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     Dim topCandidate As Variant: topCandidate = Empty
                     Dim poppedBaseUsed As Boolean: poppedBaseUsed = False
                 
-                    If stk.count > 0 Then
+                    If stk.Count > 0 Then
                         On Error Resume Next
-                        vAssignment topCandidate, stk(stk.count)
+                        vAssignment topCandidate, stk.Item(stk.Count)
                         If err.Number <> 0 Then err.Clear
                         On Error GoTo 0
                     End If
                 
                     If Not IsEmpty(topCandidate) Then
                         If IsArray(topCandidate) Or TypeName(topCandidate) = "Map" Or TypeName(topCandidate) = "Collection" Then
-                            vAssignment valObjLocal, pop_stack(stk)
+                            vAssignment valObjLocal, stk.Pop()
                             poppedBaseUsed = True
                         Else
                             poppedBaseUsed = False
@@ -2326,7 +2316,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                             ElseIf TypeName(parentElemLocal) = "Collection" Then
                                 On Error Resume Next
                                 Dim idcL As Long: idcL = CLng(indexVal)
-                                If idcL >= 1 And idcL <= parentElemLocal.count Then
+                                If idcL >= 1 And idcL <= parentElemLocal.Count Then
                                     vAssignment parentElemLocal, parentElemLocal(idcL)
                                 Else
                                     parentElemLocal = Empty
@@ -2338,8 +2328,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                         ' resolved method now against the element
                         Dim resolvedMethodNow As Variant
                         resolvedMethodNow = VM_GetPropertyValue(parentElemLocal, propNameVal)
-                        push_stack stk, parentElemLocal
-                        push_stack stk, resolvedMethodNow
+                        stk.Push parentElemLocal
+                        stk.Push resolvedMethodNow
                 
                         ' clear transient metadata
                         lastIndexBaseSlot = 0
@@ -2354,13 +2344,13 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     ' the marker and resolve the property on the element at call-time.
                     ' -----------------------
                     ' If valObjLocal is Empty we still push Empty so stack shape is preserved.
-                    push_stack stk, valObjLocal
+                    stk.Push valObjLocal
                 
                     ' Build deferred marker: a small 0-based array with a tag and the property
                     Dim deferredMarker As Variant
                     deferredMarker = Array("__DEFERRED_MEMBER__", propNameVal, rootSlot, pathColl)
                 
-                    push_stack stk, deferredMarker
+                    stk.Push deferredMarker
                 
                     ' consume transient metadata so fallback logic doesn't leak
                     lastIndexBaseSlot = 0
@@ -2396,11 +2386,11 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 Dim baseSet As Variant
                 baseSet = Empty
             
-                If stk.count > 0 Then
-                    vAssignment valSet, pop_stack(stk)
+                If stk.Count > 0 Then
+                    vAssignment valSet, stk.Pop()
                 End If
-                If stk.count > 0 Then
-                    vAssignment baseSet, pop_stack(stk)
+                If stk.Count > 0 Then
+                    vAssignment baseSet, stk.Pop()
                 End If
             
                 If rootSlotSet = 0 Then
@@ -2456,7 +2446,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                             On Error Resume Next
                             Dim idcX As Long
                             idcX = CLng(indexValSet)
-                            If idcX >= 1 And idcX <= parentContainerSet.count Then
+                            If idcX >= 1 And idcX <= parentContainerSet.Count Then
                                 vAssignment parentElem, parentContainerSet(idcX)
                             Else
                                 parentElem = Empty
@@ -2669,8 +2659,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 Dim idxVal As Variant: idxVal = Empty
                 Dim baseVal As Variant: baseVal = Empty
                 ' emitter pushes base then index -> pop index then base
-                If stk.count > 0 Then vAssignment idxVal, pop_stack(stk)
-                If stk.count > 0 Then vAssignment baseVal, pop_stack(stk)
+                If stk.Count > 0 Then vAssignment idxVal, stk.Pop()
+                If stk.Count > 0 Then vAssignment baseVal, stk.Pop()
             
                 Dim resolved As Variant: resolved = Empty
             
@@ -2719,7 +2709,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 ElseIf TypeName(baseVal) = "Collection" Then
                     If IsNumeric(idxVal) Then
                         Dim ic As Long: ic = CLng(idxVal)
-                        If ic >= 1 And ic <= baseVal.count Then
+                        If ic >= 1 And ic <= baseVal.Count Then
                             vAssignment resolved, baseVal(ic)
                         Else
                             resolved = Empty
@@ -2732,12 +2722,12 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                     resolved = Empty
                 End If
             
-                push_stack stk, resolved
+                stk.Push resolved
                 ' --- ensure deferred-member marker ends above the element (so stack becomes: ..., thisVal, calleeVal) ---
-                If stk.count >= 2 Then
+                If stk.Count >= 2 Then
                     Dim maybeMarker As Variant
                     On Error Resume Next
-                    vAssignment maybeMarker, stk(stk.count - 1)   ' second-from-top
+                    vAssignment maybeMarker, stk.Item(stk.Count - 1)   ' second-from-top
                     If err.Number = 0 Then
                         If IsArray(maybeMarker) Then
                             If UBound(maybeMarker) >= 0 Then
@@ -2745,10 +2735,10 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                                     ' swap top and second-top: make element go below the marker
                                     Dim topElem As Variant
                                     Dim markerVal As Variant
-                                    vAssignment topElem, pop_stack(stk)      ' resolved (element)
-                                    vAssignment markerVal, pop_stack(stk)    ' deferred marker
-                                    push_stack stk, topElem
-                                    push_stack stk, markerVal
+                                    vAssignment topElem, stk.Pop()      ' resolved (element)
+                                    vAssignment markerVal, stk.Pop()    ' deferred marker
+                                    stk.Push topElem
+                                    stk.Push markerVal
                                 End If
                             End If
                         End If
@@ -2781,8 +2771,8 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 End If
                 On Error GoTo 0
             
-                If stk.count < 3 Then
-                    If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "VM: INDEX_SET stack underflow: need 3, have " & CStr(stk.count)
+                If stk.Count < 3 Then
+                    If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "VM: INDEX_SET stack underflow: need 3, have " & CStr(stk.Count)
                     pc = pc + 1
                     GoTo ExitIdxSet
                 End If
@@ -2791,9 +2781,9 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 Dim idxValS As Variant: idxValS = Empty
                 Dim baseContainer As Variant: baseContainer = Empty
             
-                vAssignment rhsVal, pop_stack(stk)
-                vAssignment idxValS, pop_stack(stk)
-                vAssignment baseContainer, pop_stack(stk)
+                vAssignment rhsVal, stk.Pop()
+                vAssignment idxValS, stk.Pop()
+                vAssignment baseContainer, stk.Pop()
             
                 Dim idxnS As Long
                 If IsNumeric(idxValS) Then idxnS = CLng(idxValS) Else idxnS = -1
@@ -2933,14 +2923,14 @@ ExitIdxSet:
                 Dim nArgsC As Long: nArgsC = CLng(opCallArr(1))
                 Dim aTemp As New Collection, aii As Long
                 For aii = nArgsC To 1 Step -1
-                    aTemp.Add pop_stack(stk)
+                    aTemp.Add stk.Pop()
                 Next aii
                 Dim argsForCall As New Collection
-                For aii = aTemp.count To 1 Step -1
+                For aii = aTemp.Count To 1 Step -1
                     argsForCall.Add aTemp(aii)
                 Next aii
                 Dim resultFunc As Variant: vAssignment resultFunc, CallFuncByIndex_AST(fIdx, argsForCall)
-                push_stack stk, resultFunc
+                stk.Push resultFunc
                 pc = pc + 1
 
             Case OP_CALL_FUNC_WITH_THIS
@@ -2949,20 +2939,20 @@ ExitIdxSet:
                 Dim nAC As Long: nAC = CLng(opCF(1))
                 Dim tcol As New Collection
                 For jj = nAC To 1 Step -1
-                    tcol.Add pop_stack(stk)
+                    tcol.Add stk.Pop()
                 Next jj
                 Dim argsL As New Collection
-                For jj = tcol.count To 1 Step -1
+                For jj = tcol.Count To 1 Step -1
                     argsL.Add tcol(jj)
                 Next jj
-                vAssignment thisVal, pop_stack(stk)
+                vAssignment thisVal, stk.Pop()
                 Dim finalArgs As New Collection
                 finalArgs.Add thisVal
-                For jj = 1 To argsL.count
+                For jj = 1 To argsL.Count
                     finalArgs.Add argsL(jj)
                 Next jj
                 Dim r2 As Variant: vAssignment r2, CallFuncByIndex_AST(fIdx2, finalArgs)
-                push_stack stk, r2
+                stk.Push r2
                 pc = pc + 1
 
             Case OP_CALL
@@ -2985,8 +2975,8 @@ ExitIdxSet:
                 ' 1) Pop args from stack in reverse to build a collection in call order
                 Dim argsCol As New Collection
                 For ai = nArgs To 1 Step -1
-                    If stk.count > 0 Then
-                        argsCol.Add pop_stack(stk)
+                    If stk.Count > 0 Then
+                        argsCol.Add stk.Pop()
                     Else
                         argsCol.Add Empty
                     End If
@@ -2994,13 +2984,13 @@ ExitIdxSet:
             
                 ' 2) Pop callee (in your contract this will typically be the propName string)
                 Dim calleeVal As Variant: calleeVal = Empty
-                If stk.count > 0 Then vAssignment calleeVal, pop_stack(stk) Else calleeVal = Empty
+                If stk.Count > 0 Then vAssignment calleeVal, stk.Pop() Else calleeVal = Empty
             
                 ' 3) If member call, emitter left base under callee -> pop base
                 thisVal = Empty
                 If isMemberCall Then
-                    If stk.count > 0 Then
-                        vAssignment thisVal, pop_stack(stk)
+                    If stk.Count > 0 Then
+                        vAssignment thisVal, stk.Pop()
                     Else
                         thisVal = Empty
                     End If
@@ -3092,12 +3082,12 @@ ExitIdxSet:
                     End If
                 End If
             
-                push_stack stk, callResult
+                stk.Push callResult
                 pc = pc + 1
 
             Case OP_RETURN
                 Dim rvv As Variant: rvv = Empty
-                If stk.count > 0 Then vAssignment rvv, pop_stack(stk)
+                If stk.Count > 0 Then vAssignment rvv, stk.Pop()
                 progScope.SetValue "__return", rvv
                 Exit Do
 
@@ -3120,7 +3110,7 @@ Private Sub SyncLocalsToScope(locals() As Variant, symbols As Map, progScope As 
     Dim sidx As Long
     
     ' assume Map exposes a Keys collection via "Keys" or iterate by For Each key In symbols
-    For i = 0 To symbols.count - 1
+    For i = 0 To symbols.Count - 1
         key = symbols.key(i)
         If key <> "__slot_count" Then
             sidx = CLng(symbols.GetValue(key))
@@ -3141,7 +3131,7 @@ Private Sub SyncScopeToLocals(locals() As Variant, symbols As Map, progScope As 
     Dim key As String
     Dim sidx As Long
     
-    For i = 0 To symbols.count - 1
+    For i = 0 To symbols.Count - 1
         key = symbols.key(i)
         If key <> "__slot_count" Then
             sidx = CLng(symbols.GetValue(key))
@@ -3641,7 +3631,7 @@ Private Function VM_GetPropertyValue(baseObj As Variant, propName As String) As 
     ElseIf TypeName(baseObj) = "Collection" Then
         If IsNumeric(propName) Then
             Dim idc As Long: idc = CLng(propName)
-            If idc >= 1 And idc <= baseObj.count Then out = baseObj(idc) Else out = Empty
+            If idc >= 1 And idc <= baseObj.Count Then out = baseObj(idc) Else out = Empty
         Else
             out = Empty
         End If
@@ -3661,7 +3651,7 @@ Private Function VM_TraversePathFromRoot(rootObj As Variant, pathColl As Collect
     Dim cur As Variant: vAssignment cur, rootObj
     If pathColl Is Nothing Then vAssignment VM_TraversePathFromRoot, cur: Exit Function
     Dim i As Long
-    For i = 1 To pathColl.count
+    For i = 1 To pathColl.Count
         Dim p As String: p = CStr(pathColl(i))
         vAssignment cur, VM_GetPropertyValue(cur, p)
         If IsEmpty(cur) Then Exit For
