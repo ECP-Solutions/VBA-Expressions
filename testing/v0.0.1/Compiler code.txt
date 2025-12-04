@@ -114,7 +114,7 @@ Public Function CompileProgram(src As String, Optional progName As String = "@an
     i = 1
 
 Compiler_MainLoop:
-    Do While i <= toks.count
+    Do While i <= toks.Count
         ' skip comments at top level
         If toks(i)(0) = "COMMENT" Then
             i = i + 1
@@ -125,20 +125,20 @@ Compiler_MainLoop:
         If toks(i)(0) = "IDENT" And LCase$(toks(i)(1)) = "fun" Then
             i = i + 1
             ' skip comments
-            Do While i <= toks.count And toks(i)(0) = "COMMENT"
+            Do While i <= toks.Count And toks(i)(0) = "COMMENT"
                 i = i + 1
             Loop
-            If i > toks.count Then err.Raise vbObjectError + 1, , "Unexpected end after fun"
+            If i > toks.Count Then err.Raise vbObjectError + 1, , "Unexpected end after fun"
             Dim fname As String: fname = toks(i)(1)
             i = i + 1
-            Do While i <= toks.count And toks(i)(0) = "COMMENT"
+            Do While i <= toks.Count And toks(i)(0) = "COMMENT"
                 i = i + 1
             Loop
 
             Dim argList As New Collection
-            If i <= toks.count And toks(i)(0) = "PAREN" And toks(i)(1) = "(" Then
+            If i <= toks.Count And toks(i)(0) = "PAREN" And toks(i)(1) = "(" Then
                 i = i + 1
-                Do While i <= toks.count And Not (toks(i)(0) = "PAREN" And toks(i)(1) = ")")
+                Do While i <= toks.Count And Not (toks(i)(0) = "PAREN" And toks(i)(1) = ")")
                     If toks(i)(0) = "COMMENT" Then
                         i = i + 1
                     Else
@@ -146,19 +146,19 @@ Compiler_MainLoop:
                         i = i + 1
                     End If
                 Loop
-                If i <= toks.count And toks(i)(0) = "PAREN" And toks(i)(1) = ")" Then i = i + 1
+                If i <= toks.Count And toks(i)(0) = "PAREN" And toks(i)(1) = ")" Then i = i + 1
             End If
 
-            Do While i <= toks.count And toks(i)(0) = "COMMENT"
+            Do While i <= toks.Count And toks(i)(0) = "COMMENT"
                 i = i + 1
             Loop
-            If i > toks.count Or Not (toks(i)(0) = "PAREN" And toks(i)(1) = "{") Then
+            If i > toks.Count Or Not (toks(i)(0) = "PAREN" And toks(i)(1) = "{") Then
                 err.Raise vbObjectError + 2, , "Expected function body"
             End If
             i = i + 1
             Dim depth As Long: depth = 0
             Dim bodyTokens As New Collection
-            Do While i <= toks.count
+            Do While i <= toks.Count
                 If toks(i)(0) = "PAREN" Then
                     If toks(i)(1) = "{" Then
                         depth = depth + 1
@@ -179,14 +179,14 @@ Compiler_MainLoop:
             GLOBALS_.gFuncTable.Add fname, funcIdx
 
             Dim pa() As String
-            If argList.count > 0 Then ReDim pa(0 To argList.count - 1)
+            If argList.Count > 0 Then ReDim pa(0 To argList.Count - 1)
             Dim j As Long
-            For j = 1 To argList.count
+            For j = 1 To argList.Count
                 pa(j - 1) = argList(j)
             Next j
             GLOBALS_.gFuncParams.Add fname, pa
 
-            If i <= toks.count Then i = i + 1 ' skip the trailing '}' if present
+            If i <= toks.Count Then i = i + 1 ' skip the trailing '}' if present
             GoTo Compiler_MainLoop
         Else
             ' collect a top-level statement tokens (nesting-aware) then parse to AST node
@@ -196,7 +196,7 @@ Compiler_MainLoop:
             
             Set stmtTokens = New Collection
             
-            Do While i <= toks.count
+            Do While i <= toks.Count
                 If toks(i)(0) = "COMMENT" Then
                     i = i + 1
                     GoTo CollectNextTop
@@ -236,7 +236,7 @@ Compiler_MainLoop:
 CollectNextTop:
             Loop
 
-            If stmtTokens.count > 0 Then
+            If stmtTokens.Count > 0 Then
                 Set node = ParseStatementTokensToAST(stmtTokens)
                 If Not node Is Nothing Then
                     ' add a clone to avoid accidental reference reuse
@@ -248,7 +248,7 @@ CollectNextTop:
     Loop
     Dim optionBase As Long: optionBase = 1
     Dim filteredStmts As New Collection
-    For i = 1 To stmtsAST.count
+    For i = 1 To stmtsAST.Count
         Dim stmt As Map: Set stmt = stmtsAST(i)
         If stmt.GetValue("type") = "OptionBase" Then
             optionBase = CLng(stmt.GetValue("value"))
@@ -263,21 +263,9 @@ CollectNextTop:
     Set normalizedStmts = NormalizeAssignsInStmts(stmtsAST)
     ' Normalize collapsed identifiers (e.g. a.b, a[2], a.b[3].c) into Member/Index AST nodes
     Set normalizedStmts = NormalizeCollapsedIdentsInStmts(normalizedStmts)
-    pIndex = GLOBALS_.gPrograms.count + 1
+    pIndex = GLOBALS_.gPrograms.Count + 1
     GLOBALS_.gPrograms.Add Array(progName, normalizedStmts, progScope.Raw, optionBase)
     EmitCompactBytecodeForProgram pIndex, normalizedStmts
-    ' In EmitterFinishStore (temporary)
-    If IsObject(GLOBALS_.gRuntimeLog) Then
-        Dim outS As String: outS = "BYTECODE: "
-        Dim codes As Variant
-        Dim argsArr As Variant
-        codes = GLOBALS_.gProgramsBytecode(1).GetValue("codes")
-        argsArr = GLOBALS_.gProgramsBytecode(1).GetValue("args")
-        For i = 1 To UBound(codes)
-            outS = outS & CStr(codes(i)) & "(" & TypeName(argsArr(i)) & ") "
-        Next i
-        GLOBALS_.gRuntimeLog.Add outS
-    End If
     GLOBALS_.ProgramCache.Add src, pIndex
     CompileProgram = pIndex
 End Function
@@ -289,7 +277,7 @@ Private Function CompileFunctionAST(fname As String, argList As Collection, body
     Dim bodyStmtsAST As Collection
     Set funcScope = New ScopeStack
     funcScope.Push
-    For i = 1 To argList.count
+    For i = 1 To argList.Count
         funcScope.SetValue argList(i), Empty
     Next i
     Dim idx As Long
@@ -298,7 +286,7 @@ Private Function CompileFunctionAST(fname As String, argList As Collection, body
     Set bodyStmtsAST = NormalizeAssignsInStmts(bodyStmtsAST)
     ' Normalize collapsed identifiers (e.g. a.b, a[2], a.b[3].c) into Member/Index AST nodes
     Set bodyStmtsAST = NormalizeCollapsedIdentsInStmts(bodyStmtsAST)
-    idx = GLOBALS_.gPrograms.count + 1
+    idx = GLOBALS_.gPrograms.Count + 1
     GLOBALS_.gPrograms.Add Array(fname, bodyStmtsAST, funcScope.Raw)
     CompileFunctionAST = idx
 End Function
@@ -312,7 +300,7 @@ Private Function ParseTokensToAST(toks As Collection) As Collection
     Dim closedTopLevelBlock As Boolean
     
 ParseMain:
-    Do While i <= toks.count
+    Do While i <= toks.Count
         If toks(i)(0) = "COMMENT" Then
             i = i + 1
             GoTo ParseMain
@@ -323,7 +311,7 @@ ParseMain:
         Dim bracketDepth As Long: bracketDepth = 0
 
 ParseInner:
-        Do While i <= toks.count
+        Do While i <= toks.Count
             If toks(i)(0) = "COMMENT" Then
                 i = i + 1
                 GoTo ParseInner
@@ -374,14 +362,14 @@ ParseInner:
             i = i + 1
         Loop
 
-        If stmtTokens.count > 0 Then
+        If stmtTokens.Count > 0 Then
             Dim tmpNode As Map
             Set tmpNode = ParseStatementTokensToAST(stmtTokens)
             If Not tmpNode Is Nothing Then
                 ' If we closed a top-level block and the next token is not a semicolon,
                 ' warn the user (do not silently swallow).
                 If closedTopLevelBlock Then
-                    If i <= toks.count Then
+                    If i <= toks.Count Then
                         If Not (toks(i)(0) = "SEP" And toks(i)(1) = ";") Then
                             ' If the next token is not a comment and not end-of-input, log warning.
                             If Not (toks(i)(0) = "COMMENT") Then
@@ -408,24 +396,24 @@ End Function
 
 ' Parse a single statement token collection into an AST node (Map)
 Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
-    If stmtTokens.count = 0 Then
+    If stmtTokens.Count = 0 Then
         Set ParseStatementTokensToAST = Nothing
         Exit Function
     End If
 
     ' quick check for print
-    If stmtTokens.count >= 2 Then
+    If stmtTokens.Count >= 2 Then
         If stmtTokens(1)(0) = "IDENT" And LCase$(stmtTokens(1)(1)) = "print" Then
             Dim k As Long: k = 2
-            Do While k <= stmtTokens.count And Not (stmtTokens(k)(0) = "PAREN" And stmtTokens(k)(1) = "(")
+            Do While k <= stmtTokens.Count And Not (stmtTokens(k)(0) = "PAREN" And stmtTokens(k)(1) = "(")
                 k = k + 1
             Loop
-            If k <= stmtTokens.count Then
+            If k <= stmtTokens.Count Then
                 Dim opened As Long: opened = 1
                 k = k + 1
                 Dim innerToks As Collection
                 Set innerToks = New Collection
-                Do While k <= stmtTokens.count And opened > 0
+                Do While k <= stmtTokens.Count And opened > 0
                     If stmtTokens(k)(0) = "PAREN" Then
                         If stmtTokens(k)(1) = "(" Then
                             opened = opened + 1
@@ -474,9 +462,9 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
                 Exit Function
             Case "return"
                 Dim rv As Map: Set rv = MakeNode("Return")
-                If stmtTokens.count >= 2 Then
+                If stmtTokens.Count >= 2 Then
                     Dim rhs As New Collection, M As Long
-                    For M = 2 To stmtTokens.count
+                    For M = 2 To stmtTokens.Count
                         rhs.Add stmtTokens(M)
                     Next M
                     Dim rexpr As Map: Set rexpr = ParseExprTokensToNode(rhs)
@@ -487,8 +475,8 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
                 Set ParseStatementTokensToAST = rv
                 Exit Function
             Case "option"
-                If stmtTokens.count >= 3 And LCase$(stmtTokens(2)(1)) = "base" Then
-                    If stmtTokens.count >= 4 And stmtTokens(3)(0) = "NUMBER" Then
+                If stmtTokens.Count >= 3 And LCase$(stmtTokens(2)(1)) = "base" Then
+                    If stmtTokens.Count >= 4 And stmtTokens(3)(0) = "NUMBER" Then
                         Dim baseVal As Long: baseVal = CLng(stmtTokens(3)(1))
                         If baseVal = 0 Or baseVal = 1 Then
                             ' Set as program flag - return special node
@@ -507,7 +495,7 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
     Dim compoundOp As String: compoundOp = ""
     Dim ii As Long
     Dim depthB As Long, depthP As Long, depthBr As Long
-    For ii = 1 To stmtTokens.count
+    For ii = 1 To stmtTokens.Count
         If stmtTokens(ii)(0) = "PAREN" Then
             Select Case stmtTokens(ii)(1)
                 Case "{"
@@ -547,11 +535,11 @@ Private Function ParseStatementTokensToAST(stmtTokens As Collection) As Map
         For t = 1 To assignPos - 1
             lhsT.Add stmtTokens(t)
         Next t
-        For t = assignPos + 1 To stmtTokens.count
+        For t = assignPos + 1 To stmtTokens.Count
             rhsT.Add stmtTokens(t)
         Next t
         Dim lhsNode As Map
-        If lhsT.count = 1 And lhsT(1)(0) = "IDENT" Then
+        If lhsT.Count = 1 And lhsT(1)(0) = "IDENT" Then
             Dim nm As String: nm = lhsT(1)(1)
             If InStr(nm, "[") > 0 Then
                 Dim baseName As String: baseName = left$(nm, InStr(nm, "[") - 1)
@@ -606,7 +594,7 @@ End Function
 
 Private Function ParseArgsTokensToExprNodes(argTokens As Collection) As Collection
     Dim out As New Collection
-    If argTokens.count = 0 Then
+    If argTokens.Count = 0 Then
         Set ParseArgsTokensToExprNodes = out
         Exit Function
     End If
@@ -616,7 +604,7 @@ Private Function ParseArgsTokensToExprNodes(argTokens As Collection) As Collecti
     Dim bracketDepth As Long: bracketDepth = 0
     Dim cur As New Collection
 ParseArgsMain:
-    Do While i <= argTokens.count
+    Do While i <= argTokens.Count
         If argTokens(i)(0) = "PAREN" Then
             Select Case argTokens(i)(1)
                 Case "{"
@@ -635,7 +623,7 @@ ParseArgsMain:
         End If
         ' Argument/element separator: comma only (semicolon is NOT an argument separator)
         If argTokens(i)(0) = "SEP" And argTokens(i)(1) = "," And braceDepth = 0 And parenDepth = 0 And bracketDepth = 0 Then
-            If cur.count > 0 Then out.Add ParseExprTokensToNode(cur)
+            If cur.Count > 0 Then out.Add ParseExprTokensToNode(cur)
             Set cur = New Collection
             i = i + 1
             GoTo ParseArgsMain
@@ -644,7 +632,7 @@ ParseArgsMain:
         cur.Add argTokens(i)
         i = i + 1
     Loop
-    If cur.count > 0 Then out.Add ParseExprTokensToNode(cur)
+    If cur.Count > 0 Then out.Add ParseExprTokensToNode(cur)
     Set ParseArgsTokensToExprNodes = out
 End Function
 
@@ -657,7 +645,7 @@ Private Function ParseExprFromStringToNode(exprStr As String) As Map
 End Function
 
 Private Function ParseExprTokensToNode(toks As Collection) As Map
-    Dim n As Long: n = toks.count
+    Dim n As Long: n = toks.Count
     If n = 0 Then
         Set ParseExprTokensToNode = MakeNode("Literal"): ParseExprTokensToNode.SetValue "value", Empty
         Exit Function
@@ -1107,7 +1095,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                         Set currentNode = indexNode
                         posS = posClose + 1
                     Else
-                        ' unknown char Â— stop parsing the collapsed form
+                        ' unknown char — stop parsing the collapsed form
                         Exit Do
                     End If
                 Loop
@@ -1221,7 +1209,7 @@ Private Function ParsePrimaryNode(types() As String, vals() As Variant, n As Lon
                             argTok.Add Array(types(idx), vals(idx))
                             idx = idx + 1
                         Loop
-                        If argTok.count > 0 Then
+                        If argTok.Count > 0 Then
                             argNodes.Add ParseExprTokensToNode(argTok)
                         Else
                             Dim litEmpty As Map: Set litEmpty = MakeNode("Literal")
@@ -1332,15 +1320,15 @@ End Function
 Private Function ParseIfAST(stmtTokens As Collection) As Map
     Dim node As Map: Set node = MakeNode("If")
     Dim i As Long: i = 2
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseIfAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseIfAST = node: Exit Function
     i = i + 1
     Dim condTokens As Collection
     Set condTokens = New Collection
     Dim condDepth As Long: condDepth = 0
-    Do While i <= stmtTokens.count
+    Do While i <= stmtTokens.Count
         If stmtTokens(i)(0) = "PAREN" Then
             If stmtTokens(i)(1) = "(" Then
                 condDepth = condDepth + 1
@@ -1357,15 +1345,15 @@ Private Function ParseIfAST(stmtTokens As Collection) As Map
     Loop
     node.SetValue "cond", ParseExprTokensToNode(condTokens)
 
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseIfAST = node.Clone: GoTo clean_
+    If i > stmtTokens.Count Then Set ParseIfAST = node.Clone: GoTo clean_
     Dim j As Long: j = i + 1
     Dim depth As Long: depth = 0
     Dim thenTokens As Collection
     Set thenTokens = New Collection
-    Do While j <= stmtTokens.count
+    Do While j <= stmtTokens.Count
         If stmtTokens(j)(0) = "PAREN" Then
             If stmtTokens(j)(1) = "{" Then
                 depth = depth + 1
@@ -1392,7 +1380,7 @@ Private Function ParseIfAST(stmtTokens As Collection) As Map
     Dim eDepth As Long
     Set elseifConds = New Collection
     Set elseifBlocks = New Collection
-    Do While pos <= stmtTokens.count
+    Do While pos <= stmtTokens.Count
         If stmtTokens(pos)(0) = "COMMENT" Then
             pos = pos + 1
             GoTo IfParseNext
@@ -1401,14 +1389,14 @@ Private Function ParseIfAST(stmtTokens As Collection) As Map
             tName = LCase$(stmtTokens(pos)(1))
             If tName = "elseif" Then
                 pos = pos + 1
-                Do While pos <= stmtTokens.count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "(")
+                Do While pos <= stmtTokens.Count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "(")
                     pos = pos + 1
                 Loop
-                If pos > stmtTokens.count Then Exit Do
+                If pos > stmtTokens.Count Then Exit Do
                 pos = pos + 1
                 eDepth = 0
                 Set eCondTok = New Collection
-                Do While pos <= stmtTokens.count
+                Do While pos <= stmtTokens.Count
                     If stmtTokens(pos)(0) = "PAREN" Then
                         If stmtTokens(pos)(1) = "(" Then
                             eDepth = eDepth + 1
@@ -1423,14 +1411,14 @@ Private Function ParseIfAST(stmtTokens As Collection) As Map
                     eCondTok.Add stmtTokens(pos)
                     pos = pos + 1
                 Loop
-                Do While pos <= stmtTokens.count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "{")
+                Do While pos <= stmtTokens.Count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "{")
                     pos = pos + 1
                 Loop
-                If pos > stmtTokens.count Then Exit Do
+                If pos > stmtTokens.Count Then Exit Do
                 pos = pos + 1
                 Set eBlockTok = New Collection
                 depth = 0
-                Do While pos <= stmtTokens.count
+                Do While pos <= stmtTokens.Count
                     If stmtTokens(pos)(0) = "PAREN" Then
                         If stmtTokens(pos)(1) = "{" Then
                             depth = depth + 1
@@ -1451,14 +1439,14 @@ Private Function ParseIfAST(stmtTokens As Collection) As Map
                 GoTo IfParseNext
             ElseIf tName = "else" Then
                 pos = pos + 1
-                Do While pos <= stmtTokens.count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "{")
+                Do While pos <= stmtTokens.Count And Not (stmtTokens(pos)(0) = "PAREN" And stmtTokens(pos)(1) = "{")
                     pos = pos + 1
                 Loop
-                If pos > stmtTokens.count Then Exit Do
+                If pos > stmtTokens.Count Then Exit Do
                 pos = pos + 1
                 Set elseTok = New Collection
                 depth = 0
-                Do While pos <= stmtTokens.count
+                Do While pos <= stmtTokens.Count
                     If stmtTokens(pos)(0) = "PAREN" Then
                         If stmtTokens(pos)(1) = "{" Then
                             depth = depth + 1
@@ -1505,15 +1493,15 @@ Private Function ParseForAST(stmtTokens As Collection) As Map
     Dim stepTok As Collection
     Dim bodyToks As Collection
     Dim i As Long: i = 2
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseForAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseForAST = node: Exit Function
     i = i + 1
     Set initTok = New Collection
     Dim hdrParen As Long, hdrBracket As Long, hdrBrace As Long
     hdrParen = 0: hdrBracket = 0: hdrBrace = 0
-    Do While i <= stmtTokens.count
+    Do While i <= stmtTokens.Count
         If stmtTokens(i)(0) = "PAREN" Then
             Select Case stmtTokens(i)(1)
                 Case "("
@@ -1546,7 +1534,7 @@ Private Function ParseForAST(stmtTokens As Collection) As Map
 
     Set condTok = New Collection
     hdrParen = 0: hdrBracket = 0: hdrBrace = 0
-    Do While i <= stmtTokens.count
+    Do While i <= stmtTokens.Count
         If stmtTokens(i)(0) = "PAREN" Then
             Select Case stmtTokens(i)(1)
                 Case "("
@@ -1579,7 +1567,7 @@ Private Function ParseForAST(stmtTokens As Collection) As Map
 
     Set stepTok = New Collection
     hdrParen = 0: hdrBracket = 0: hdrBrace = 0
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = ")")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = ")")
         If stmtTokens(i)(0) = "PAREN" Then
             Select Case stmtTokens(i)(1)
                 Case "("
@@ -1601,14 +1589,14 @@ Private Function ParseForAST(stmtTokens As Collection) As Map
     Loop
     node.SetValue "step", ParseExprTokensToNode(stepTok)
 
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseForAST = node.Clone: GoTo clean_
+    If i > stmtTokens.Count Then Set ParseForAST = node.Clone: GoTo clean_
     Dim j As Long: j = i + 1
     Dim depth As Long: depth = 0
     Set bodyToks = New Collection
-    Do While j <= stmtTokens.count
+    Do While j <= stmtTokens.Count
         If stmtTokens(j)(0) = "PAREN" Then
             If stmtTokens(j)(1) = "{" Then
                 depth = depth + 1
@@ -1636,15 +1624,15 @@ End Function
 Private Function ParseWhileAST(stmtTokens As Collection) As Map
     Dim node As Map: Set node = MakeNode("While")
     Dim i As Long: i = 2
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseWhileAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseWhileAST = node: Exit Function
     i = i + 1
     Dim condTok As Collection
     Set condTok = New Collection
     Dim depthP As Long: depthP = 0
-    Do While i <= stmtTokens.count
+    Do While i <= stmtTokens.Count
         If stmtTokens(i)(0) = "PAREN" Then
             If stmtTokens(i)(1) = "(" Then
                 depthP = depthP + 1
@@ -1661,15 +1649,15 @@ Private Function ParseWhileAST(stmtTokens As Collection) As Map
     Loop
     node.SetValue "cond", ParseExprTokensToNode(condTok)
 
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseWhileAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseWhileAST = node: Exit Function
     Dim j As Long: j = i + 1
     Dim depth As Long: depth = 0
     Dim bodyToks As Collection
     Set bodyToks = New Collection
-    Do While j <= stmtTokens.count
+    Do While j <= stmtTokens.Count
         If stmtTokens(j)(0) = "PAREN" Then
             If stmtTokens(j)(1) = "{" Then
                 depth = depth + 1
@@ -1691,15 +1679,15 @@ End Function
 Private Function ParseTryCatchAST(stmtTokens As Collection) As Map
     Dim node As Map: Set node = MakeNode("TryCatch")
     Dim i As Long: i = 2
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseTryCatchAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseTryCatchAST = node: Exit Function
     Dim j As Long: j = i + 1
     Dim depth As Long: depth = 0
     Dim tryTok As Collection
     Set tryTok = New Collection
-    Do While j <= stmtTokens.count
+    Do While j <= stmtTokens.Count
         If stmtTokens(j)(0) = "PAREN" Then
             If stmtTokens(j)(1) = "{" Then
                 depth = depth + 1
@@ -1719,16 +1707,16 @@ Private Function ParseTryCatchAST(stmtTokens As Collection) As Map
     Dim k As Long: k = j + 1
     Dim catchTok As Collection
     Set catchTok = New Collection
-    Do While k <= stmtTokens.count
+    Do While k <= stmtTokens.Count
         If stmtTokens(k)(0) = "IDENT" And LCase$(stmtTokens(k)(1)) = "catch" Then
             Dim kk As Long: kk = k + 1
-            Do While kk <= stmtTokens.count And Not (stmtTokens(kk)(0) = "PAREN" And stmtTokens(kk)(1) = "{")
+            Do While kk <= stmtTokens.Count And Not (stmtTokens(kk)(0) = "PAREN" And stmtTokens(kk)(1) = "{")
                 kk = kk + 1
             Loop
-            If kk <= stmtTokens.count Then
+            If kk <= stmtTokens.Count Then
                 kk = kk + 1
                 Dim depth2 As Long: depth2 = 0
-                Do While kk <= stmtTokens.count
+                Do While kk <= stmtTokens.Count
                     If stmtTokens(kk)(0) = "PAREN" Then
                         If stmtTokens(kk)(1) = "{" Then
                             depth2 = depth2 + 1
@@ -1755,35 +1743,35 @@ End Function
 Private Function ParseSwitchAST(stmtTokens As Collection) As Map
     Dim node As Map: Set node = MakeNode("Switch")
     Dim i As Long: i = 2
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "(")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseSwitchAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseSwitchAST = node: Exit Function
     i = i + 1
     Dim condTok As New Collection
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = ")")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = ")")
         condTok.Add stmtTokens(i)
         i = i + 1
     Loop
     node.SetValue "expr", ParseExprTokensToNode(condTok)
 
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
         i = i + 1
     Loop
-    If i > stmtTokens.count Then Set ParseSwitchAST = node: Exit Function
+    If i > stmtTokens.Count Then Set ParseSwitchAST = node: Exit Function
     i = i + 1
     Dim cases As Collection
     Set cases = New Collection
     Dim defaultBlock As Collection
     Dim valTok As Collection
-    Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "}")
+    Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "}")
         If stmtTokens(i)(0) = "IDENT" And LCase$(stmtTokens(i)(1)) = "case" Then
             i = i + 1
             Set valTok = New Collection
             Dim cvParen As Long: cvParen = 0
             Dim cvBracket As Long: cvBracket = 0
             Dim cvBrace As Long: cvBrace = 0
-            Do While i <= stmtTokens.count
+            Do While i <= stmtTokens.Count
                 If stmtTokens(i)(0) = "PAREN" Then
                     Select Case stmtTokens(i)(1)
                         Case "("
@@ -1808,14 +1796,14 @@ Private Function ParseSwitchAST(stmtTokens As Collection) As Map
                 i = i + 1
             Loop
             Dim caseValNode As Map: Set caseValNode = ParseExprTokensToNode(valTok)
-            If i <= stmtTokens.count And stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{" Then
+            If i <= stmtTokens.Count And stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{" Then
                 i = i + 1
                 Dim depth As Long: depth = 0
                 Dim blockTok As Collection
                 Dim pair As Collection
                 Dim caseBlock As Collection
                 Set blockTok = New Collection
-                Do While i <= stmtTokens.count
+                Do While i <= stmtTokens.Count
                     If stmtTokens(i)(0) = "PAREN" Then
                         If stmtTokens(i)(1) = "{" Then
                             depth = depth + 1
@@ -1839,14 +1827,14 @@ Private Function ParseSwitchAST(stmtTokens As Collection) As Map
             End If
         ElseIf stmtTokens(i)(0) = "IDENT" And LCase$(stmtTokens(i)(1)) = "default" Then
             i = i + 1
-            Do While i <= stmtTokens.count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
+            Do While i <= stmtTokens.Count And Not (stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{")
                 i = i + 1
             Loop
-            If i <= stmtTokens.count And stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{" Then
+            If i <= stmtTokens.Count And stmtTokens(i)(0) = "PAREN" And stmtTokens(i)(1) = "{" Then
                 i = i + 1
                 Dim depth2 As Long: depth2 = 0
                 Dim defTok As New Collection
-                Do While i <= stmtTokens.count
+                Do While i <= stmtTokens.Count
                     If stmtTokens(i)(0) = "PAREN" Then
                         If stmtTokens(i)(1) = "{" Then
                             depth2 = depth2 + 1
@@ -1933,7 +1921,7 @@ Private Function NormalizeExprNodeRecursive(expr As Map) As Map
                 Dim newArgs As New Collection
                 Dim changed As Boolean: changed = False
                 Dim i As Long
-                For i = 1 To args.count
+                For i = 1 To args.Count
                     Dim ae As Map: Set ae = NormalizeExprNodeRecursive(args(i))
                     If Not ae Is args(i) Then changed = True: newArgs.Add ae Else newArgs.Add args(i)
                 Next i
@@ -1967,7 +1955,7 @@ Private Function NormalizeExprNodeRecursive(expr As Map) As Map
                 Dim newit As New Collection
                 Dim ch As Boolean: ch = False
                 Dim ii As Long
-                For ii = 1 To items.count
+                For ii = 1 To items.Count
                     Dim ei As Map: Set ei = NormalizeExprNodeRecursive(items(ii))
                     If Not ei Is items(ii) Then ch = True: newit.Add ei Else newit.Add items(ii)
                 Next ii
@@ -2088,7 +2076,7 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Dim i As Long
             If Not thenBlk Is Nothing Then
                 Set outThen = New Collection
-                For i = 1 To thenBlk.count
+                For i = 1 To thenBlk.Count
                     outThen.Add NormalizeNodeRecursive(thenBlk(i))
                 Next i
             End If
@@ -2097,16 +2085,16 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set outElseIfConds = New Collection
             Set outElseIfBlocks = New Collection
             If Not elseifConds Is Nothing Then
-                For i = 1 To elseifConds.count
+                For i = 1 To elseifConds.Count
                     outElseIfConds.Add NormalizeExprNodeRecursive(elseifConds(i))
                 Next i
             End If
             If Not elseifBlocks Is Nothing Then
-                For i = 1 To elseifBlocks.count
+                For i = 1 To elseifBlocks.Count
                     Set eb = elseifBlocks(i)
                     Set nb = New Collection
                     Dim j As Long
-                    For j = 1 To eb.count
+                    For j = 1 To eb.Count
                         nb.Add NormalizeNodeRecursive(eb(j))
                     Next j
                     outElseIfBlocks.Add nb
@@ -2115,7 +2103,7 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set elseBlk = node.GetValue("else")
             If Not elseBlk Is Nothing Then
                 Set outElse = New Collection
-                For i = 1 To elseBlk.count
+                For i = 1 To elseBlk.Count
                     outElse.Add NormalizeNodeRecursive(elseBlk(i))
                 Next i
             End If
@@ -2189,7 +2177,7 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set newBody = New Collection
             If Not body Is Nothing Then
                 Dim bidx As Long
-                For bidx = 1 To body.count
+                For bidx = 1 To body.Count
                     newBody.Add NormalizeNodeRecursive(body(bidx))
                 Next bidx
             End If
@@ -2208,7 +2196,7 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set nbdy = New Collection
             If Not bdy Is Nothing Then
                 Dim bi As Long
-                For bi = 1 To bdy.count
+                For bi = 1 To bdy.Count
                     nbdy.Add NormalizeNodeRecursive(bdy(bi))
                 Next bi
             End If
@@ -2225,12 +2213,12 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set nt = New Collection: Set nc = New Collection
             Dim ti As Long
             If Not tryBlk Is Nothing Then
-                For ti = 1 To tryBlk.count
+                For ti = 1 To tryBlk.Count
                     nt.Add NormalizeNodeRecursive(tryBlk(ti))
                 Next ti
             End If
             If Not catchBlk Is Nothing Then
-                For ti = 1 To catchBlk.count
+                For ti = 1 To catchBlk.Count
                     nc.Add NormalizeNodeRecursive(catchBlk(ti))
                 Next ti
             End If
@@ -2246,13 +2234,13 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             Set ncases = New Collection
             If Not cases Is Nothing Then
                 Dim ci As Long
-                For ci = 1 To cases.count
+                For ci = 1 To cases.Count
                     Set pair = cases(ci)
                     Set caseExpr = NormalizeExprNodeRecursive(pair(1))
                     Set blockStmts = pair(2)
                     Set nb = New Collection
                     Dim bi2 As Long
-                    For bi2 = 1 To blockStmts.count
+                    For bi2 = 1 To blockStmts.Count
                         nb.Add NormalizeNodeRecursive(blockStmts(bi2))
                     Next bi2
                     Set newPair = New Collection
@@ -2265,7 +2253,7 @@ Private Function NormalizeNodeRecursive(node As Map) As Map
             If Not def Is Nothing Then
                 Set ndef = New Collection
                 Dim di As Long
-                For di = 1 To def.count
+                For di = 1 To def.Count
                     ndef.Add NormalizeNodeRecursive(def(di))
                 Next di
             End If
@@ -2301,7 +2289,7 @@ Private Function NormalizeAssignsInStmts(stmts As Collection) As Collection
     End If
     Dim i As Long
     Dim n As Map
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         Set n = stmts(i)
         out.Add NormalizeNodeRecursive(n)
     Next i
@@ -2319,7 +2307,7 @@ Private Function NormalizeCollapsedIdentsInStmts(stmts As Collection) As Collect
         Set NormalizeCollapsedIdentsInStmts = out: Exit Function
     End If
     Dim i As Long
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         out.Add NormalizeCollapsedIdentsInNode(stmts(i))
     Next i
     Set NormalizeCollapsedIdentsInStmts = out
@@ -2345,7 +2333,7 @@ Private Function NormalizeCollapsedIdentsInNode(node As Map) As Map
             Dim argsP As Collection: Set argsP = M.GetValue("args")
             If Not argsP Is Nothing Then
                 Dim outArgsP As New Collection, ai As Long
-                For ai = 1 To argsP.count
+                For ai = 1 To argsP.Count
                     outArgsP.Add NormalizeCollapsedIdentsInExpr(argsP(ai))
                 Next ai
                 M.SetValue "args", outArgsP
@@ -2383,7 +2371,7 @@ Private Function NormalizeCollapsedIdentsInNode(node As Map) As Map
             If M.Exists("cases") Then
                 Dim cs As Collection: Set cs = M.GetValue("cases")
                 Dim nc As New Collection, ci As Long
-                For ci = 1 To cs.count
+                For ci = 1 To cs.Count
                     Dim pair As Map: Set pair = cs(ci)
                     Dim caseVal As Map: Set caseVal = pair.GetValue(1)
                     Dim stmts As Collection: Set stmts = pair.GetValue(2)
@@ -2461,13 +2449,13 @@ Private Function NormalizeCollapsedIdentsInExpr(node As Map) As Map
             If node.Exists("args") Then
                 Dim ac As Collection: Set ac = node.GetValue("args")
                 Dim ai As Long
-                For ai = 1 To ac.count
+                For ai = 1 To ac.Count
                     args.Add NormalizeCollapsedIdentsInExpr(ac(ai))
                 Next ai
             End If
             Dim cn As Map: Set cn = node.Clone
             If Not cal Is Nothing Then cn.SetValue "callee", cal
-            If args.count > 0 Then cn.SetValue "args", args
+            If args.Count > 0 Then cn.SetValue "args", args
             Set NormalizeCollapsedIdentsInExpr = cn
             Exit Function
 
@@ -2475,7 +2463,7 @@ Private Function NormalizeCollapsedIdentsInExpr(node As Map) As Map
             Dim items As Collection: Set items = node.GetValue("items")
             If Not items Is Nothing Then
                 Dim outItems As New Collection, ii As Long
-                For ii = 1 To items.count
+                For ii = 1 To items.Count
                     outItems.Add NormalizeCollapsedIdentsInExpr(items(ii))
                 Next ii
                 Dim an As Map: Set an = node.Clone
@@ -2606,7 +2594,7 @@ End Sub
 
 Private Sub EmitterFinishStore(progIdx As Long)
     Dim n As Long: n = 0
-    If Not m_codesCol Is Nothing Then n = m_codesCol.count
+    If Not m_codesCol Is Nothing Then n = m_codesCol.Count
     Dim codes() As Long
     If n = 0 Then
         ReDim codes(1 To 1)
@@ -2620,7 +2608,7 @@ Private Sub EmitterFinishStore(progIdx As Long)
     End If
 
     Dim M As Long: M = 0
-    If Not m_argsCol Is Nothing Then M = m_argsCol.count
+    If Not m_argsCol Is Nothing Then M = m_argsCol.Count
     Dim argsArr() As Variant
     If M = 0 Then
         ReDim argsArr(1 To 1)
@@ -2672,47 +2660,76 @@ Private Sub EmitterFinishStore(progIdx As Long)
     m_nextSlot = 0
     m_progTempCounter = 0
     Set m_loopStack = Nothing
-' --- TEMP: human readable bytecode dump for debugging ---
-If IsObject(GLOBALS_.gRuntimeLog) Then
-    Dim opNames As Object: Set opNames = CreateObject("Scripting.Dictionary")
-    opNames.Add 0, "OP_NOP": opNames.Add 1, "OP_PUSH_CONST": opNames.Add 2, "OP_LOAD_FAST"
-    opNames.Add 3, "OP_STORE_FAST": opNames.Add 4, "OP_LOAD_NAME": opNames.Add 5, "OP_STORE_NAME"
-    opNames.Add 6, "OP_BINARY": opNames.Add 7, "OP_MAKE_ARRAY": opNames.Add 8, "OP_PRINT"
-    opNames.Add 9, "OP_POP": opNames.Add 10, "OP_JUMP": opNames.Add 11, "OP_JUMP_IF_FALSE"
-    opNames.Add 12, "OP_PUSH_AST_NODE": opNames.Add 13, "OP_LOAD_MEMBER_KEEP_BASE": opNames.Add 14, "OP_MEMBER_SET"
-    opNames.Add 15, "OP_INDEX_GET": opNames.Add 16, "OP_INDEX_SET": opNames.Add 17, "OP_BUILTIN_FAST"
-    opNames.Add 18, "OP_CALL": opNames.Add 19, "OP_CALL_FUNC": opNames.Add 20, "OP_CALL_FUNC_WITH_THIS"
-    opNames.Add 21, "OP_RETURN"
-    ' include our optionally added ops if present
-    On Error Resume Next
-    opNames.Add 22, "OP_MEMBER_OF_VALUE": opNames.Add 23, "OP_LOAD_MEMBER_FROM_VALUE_KEEP_BASE"
-    On Error GoTo 0
-
-    Dim readable As String: readable = "BYTECODE_READABLE: "
-    Dim iop As Long
-    For iop = 1 To UBound(codes)
-        Dim codeNum As Long: codeNum = CLng(codes(iop))
-        Dim opname As String
-        If opNames.Exists(codeNum) Then opname = opNames(codeNum) Else opname = "OP_" & CStr(codeNum)
-        Dim opd As String
-        If opname = "" Then
-            opd = "?"
-        Else
-            opd = TypeName(argsArr(iop))
-        End If
-        If VarType(argsArr(iop)) = vbString Then
-            opd = """" & CStr(argsArr(iop)) & """"
-        ElseIf IsArray(argsArr(iop)) Then
-            opd = "Array()"
-        Else
-            opd = CStr(argsArr(iop))
-        End If
-        readable = readable & opname & "(" & opd & ") "
-    Next iop
-    GLOBALS_.gRuntimeLog.Add readable
-End If
-' --- end TEMP dump ---
 End Sub
+
+'Private Sub EmitterFinishStore(progIdx As Long)
+'    Dim n As Long: n = 0
+'    If Not m_codesCol Is Nothing Then n = m_codesCol.count
+'    Dim codes() As Long
+'    If n = 0 Then
+'        ReDim codes(1 To 1)
+'        codes(1) = OP_RETURN
+'    Else
+'        ReDim codes(1 To n)
+'        Dim i As Long
+'        For i = 1 To n
+'            codes(i) = CLng(m_codesCol(i))
+'        Next i
+'    End If
+'
+'    Dim m As Long: m = 0
+'    If Not m_argsCol Is Nothing Then m = m_argsCol.count
+'    Dim argsArr() As Variant
+'    If m = 0 Then
+'        ReDim argsArr(1 To 1)
+'        argsArr(1) = Empty
+'    Else
+'        ReDim argsArr(1 To m)
+'        For i = 1 To m
+'            vAssignment argsArr(i), m_argsCol(i)
+'        Next i
+'    End If
+'
+'    ' Ensure we always have a Map for symbols (so VM can rely on it existing)
+'    If m_symbolMap Is Nothing Then
+'        Set m_symbolMap = New Map
+'    End If
+'    ' Compute slot count: number of reserved numeric slots (m_nextSlot - 1)
+'    Dim slotCount As Long
+'    If m_nextSlot <= 1 Then
+'        slotCount = 0
+'    Else
+'        slotCount = m_nextSlot - 1
+'    End If
+'
+'    ' Write slot count into symbol map under a stable key
+'    On Error Resume Next
+'    If m_symbolMap.Exists("__slot_count") Then
+'        m_symbolMap.SetValue "__slot_count", slotCount
+'    Else
+'        m_symbolMap.Add "__slot_count", slotCount
+'    End If
+'    On Error GoTo 0
+'
+'    ' build a Map to hold compact bytecode for program
+'    Dim bcMap As New Map
+'    bcMap.Add "codes", codes
+'    bcMap.SetValue "args", argsArr
+'    bcMap.SetValue "symbols", m_symbolMap
+'
+'    ' ensure globals collections exist and store program bytecode & symbols
+'    EnsureProgramsCollections
+'    GLOBALS_.gProgramsBytecode.Add bcMap
+'    GLOBALS_.gProgramsSymbols.Add m_symbolMap
+'
+'    ' cleanup emitter state
+'    Set m_codesCol = Nothing
+'    Set m_argsCol = Nothing
+'    Set m_symbolMap = Nothing
+'    m_nextSlot = 0
+'    m_progTempCounter = 0
+'    Set m_loopStack = Nothing
+'End Sub
 
 Private Sub EmitOp(opcode As Long, operand As Variant)
     m_codesCol.Add opcode
@@ -2722,17 +2739,17 @@ End Sub
 ' Patch the operand index i (1-based) with newOperand
 Private Sub PatchOperandAt(idx As Long, newOperand As Variant)
     Dim tmp As New Collection, i As Long
-    For i = 1 To m_argsCol.count
+    For i = 1 To m_argsCol.Count
         If i = idx Then
             tmp.Add newOperand
         Else
             tmp.Add m_argsCol(i)
         End If
     Next i
-    Do While m_argsCol.count > 0
+    Do While m_argsCol.Count > 0
         m_argsCol.Remove 1
     Loop
-    For i = 1 To tmp.count
+    For i = 1 To tmp.Count
         m_argsCol.Add tmp(i)
     Next i
 End Sub
@@ -2771,14 +2788,14 @@ Private Sub PushLoop(startOp As Long, continueOp As Long, endOp As Long)
 End Sub
 
 Private Sub PopLoop()
-    If m_loopStack.count > 0 Then m_loopStack.Remove m_loopStack.count
+    If m_loopStack.Count > 0 Then m_loopStack.Remove m_loopStack.Count
 End Sub
 
 Private Function TopLoop() As Map
-    If m_loopStack.count = 0 Then
+    If m_loopStack.Count = 0 Then
         Set TopLoop = Nothing
     Else
-        Set TopLoop = m_loopStack(m_loopStack.count)
+        Set TopLoop = m_loopStack(m_loopStack.Count)
     End If
 End Function
 ' Return True if the node represents an addressable base (a variable or a chain of Members
@@ -2840,7 +2857,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Dim args As Collection: Set args = node.GetValue("args")
             If Not args Is Nothing Then
                 Dim j As Long
-                For j = 1 To args.count
+                For j = 1 To args.Count
                     ScanNodeForSymbolsForEmit args(j)
                 Next j
             End If
@@ -2857,7 +2874,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Set items = node.GetValue("items")
             If Not items Is Nothing Then
                 Dim k As Long
-                For k = 1 To items.count
+                For k = 1 To items.Count
                     ScanNodeForSymbolsForEmit items(k)
                 Next k
             End If
@@ -2873,7 +2890,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Dim bodyF As Collection: Set bodyF = node.GetValue("body")
             If Not bodyF Is Nothing Then
                 Dim x As Long
-                For x = 1 To bodyF.count
+                For x = 1 To bodyF.Count
                     ScanNodeForSymbolsForEmit bodyF(x)
                 Next x
             End If
@@ -2882,7 +2899,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Dim bodyW As Collection: Set bodyW = node.GetValue("body")
             If Not bodyW Is Nothing Then
                 Dim y As Long
-                For y = 1 To bodyW.count
+                For y = 1 To bodyW.Count
                     ScanNodeForSymbolsForEmit bodyW(y)
                 Next y
             End If
@@ -2891,14 +2908,14 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Dim cases As Collection: Set cases = node.GetValue("cases")
             If Not cases Is Nothing Then
                 Dim z As Long
-                For z = 1 To cases.count
+                For z = 1 To cases.Count
                     Dim c As Map
                     Set c = cases(z)
                     ScanNodeForSymbolsForEmit c.GetValue("value")
                     Dim st As Collection: Set st = c.GetValue("stmts")
                     If Not st Is Nothing Then
                         Dim w As Long
-                        For w = 1 To st.count
+                        For w = 1 To st.Count
                             ScanNodeForSymbolsForEmit st(w)
                         Next w
                     End If
@@ -2920,7 +2937,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
 
             If Not propsCol Is Nothing Then
                 Dim pi As Long
-                For pi = 1 To propsCol.count
+                For pi = 1 To propsCol.Count
                     Dim pair As Variant: vAssignment pair, propsCol(pi)
                     ' pair may be Map {key, value} or 2-element array/collection
                     If TypeName(pair) = "Map" Then
@@ -2935,7 +2952,7 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
                     ElseIf TypeName(pair) = "Collection" Then
                         ' assume (key, value)
                         vAssignment tmpMap, pair(2)
-                        If pair.count >= 2 Then ScanNodeForSymbolsForEmit tmpMap
+                        If pair.Count >= 2 Then ScanNodeForSymbolsForEmit tmpMap
                     ElseIf IsArray(pair) Then
                         vAssignment tmpMap, pair(1)
                         On Error Resume Next
@@ -3058,10 +3075,10 @@ Private Sub EmitExprBytecode(node As Map)
             On Error GoTo 0
             If Not items Is Nothing Then
                 Dim ii As Long
-                For ii = 1 To items.count
+                For ii = 1 To items.Count
                     EmitExprBytecode items(ii)
                 Next ii
-                EmitOp OP_MAKE_ARRAY, items.count
+                EmitOp OP_MAKE_ARRAY, items.Count
             Else
                 EmitOp OP_MAKE_ARRAY, 0
             End If
@@ -3082,14 +3099,14 @@ Private Sub EmitExprBytecode(node As Map)
             If Not condN Is Nothing Then EmitExprBytecode condN
             EmitOp OP_JUMP_IF_FALSE, Empty
             Dim jfArgIdx As Long
-            jfArgIdx = m_argsCol.count
+            jfArgIdx = m_argsCol.Count
             If Not trueN Is Nothing Then EmitExprBytecode trueN
             EmitOp OP_JUMP, Empty
             Dim jaArgIdx As Long
-            jaArgIdx = m_argsCol.count
-            PatchOperandAt jfArgIdx, m_codesCol.count + 1
+            jaArgIdx = m_argsCol.Count
+            PatchOperandAt jfArgIdx, m_codesCol.Count + 1
             If Not falseN Is Nothing Then EmitExprBytecode falseN
-            PatchOperandAt jaArgIdx, m_codesCol.count + 1
+            PatchOperandAt jaArgIdx, m_codesCol.Count + 1
 
         Case "Call"
             ' Prepare callee info
@@ -3132,7 +3149,7 @@ Private Sub EmitExprBytecode(node As Map)
             On Error GoTo 0
             Dim nArgs As Long
             nArgs = 0
-            If Not argColl Is Nothing Then nArgs = argColl.count
+            If Not argColl Is Nothing Then nArgs = argColl.Count
 
             Dim cvals As Collection
             Set cvals = Nothing
@@ -3140,7 +3157,7 @@ Private Sub EmitExprBytecode(node As Map)
                 On Error Resume Next
                 vAssignment cvals, node.GetValue("const_args")
                 On Error GoTo 0
-                If Not cvals Is Nothing Then nArgs = cvals.count
+                If Not cvals Is Nothing Then nArgs = cvals.Count
             End If
 
             ' If callee is a Member -> this is a member-call. Emit base first, then load member keeping base.
@@ -3174,12 +3191,12 @@ Private Sub EmitExprBytecode(node As Map)
                     ' Push arguments left->right (consts or evaluated)
                     If Not cvals Is Nothing Then
                         Dim cj As Long
-                        For cj = 1 To cvals.count
+                        For cj = 1 To cvals.Count
                             EmitOp OP_PUSH_CONST, cvals(cj)
                         Next cj
                     ElseIf Not argColl Is Nothing Then
                         Dim bk As Long
-                        For bk = 1 To argColl.count
+                        For bk = 1 To argColl.Count
                             EmitExprBytecode argColl(bk)
                         Next bk
                     End If
@@ -3200,12 +3217,12 @@ Private Sub EmitExprBytecode(node As Map)
                         If Not IsEmpty(fIdxVar) Then
                             If Not cvals Is Nothing Then
                                 Dim cii As Long
-                                For cii = 1 To cvals.count
+                                For cii = 1 To cvals.Count
                                     EmitOp OP_PUSH_CONST, cvals(cii)
                                 Next cii
                             ElseIf Not argColl Is Nothing Then
                                 Dim aii As Long
-                                For aii = 1 To argColl.count
+                                For aii = 1 To argColl.Count
                                     EmitExprBytecode argColl(aii)
                                 Next aii
                             End If
@@ -3222,16 +3239,16 @@ Private Sub EmitExprBytecode(node As Map)
 
             If Not cvals Is Nothing Then
                 Dim cxx As Long
-                For cxx = 1 To cvals.count
+                For cxx = 1 To cvals.Count
                     EmitOp OP_PUSH_CONST, cvals(cxx)
                 Next cxx
-                EmitOp OP_CALL, Array(cvals.count, node)
+                EmitOp OP_CALL, Array(cvals.Count, node)
             ElseIf Not argColl Is Nothing Then
                 Dim bx2 As Long
-                For bx2 = 1 To argColl.count
+                For bx2 = 1 To argColl.Count
                     EmitExprBytecode argColl(bx2)
                 Next bx2
-                EmitOp OP_CALL, Array(argColl.count, node)
+                EmitOp OP_CALL, Array(argColl.Count, node)
             Else
                 EmitOp OP_CALL, Array(0, node)
             End If
@@ -3330,10 +3347,10 @@ Private Sub EmitStmtBytecode(stmt As Map)
             On Error GoTo 0
             If Not args Is Nothing Then
                 Dim ip As Long
-                For ip = 1 To args.count
+                For ip = 1 To args.Count
                     EmitExprBytecode args(ip)
                 Next ip
-                EmitOp OP_PRINT, args.count
+                EmitOp OP_PRINT, args.Count
             Else
                 EmitOp OP_PRINT, 0
             End If
@@ -3571,7 +3588,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
             If Not condNode Is Nothing Then EmitExprBytecode condNode
             EmitOp OP_JUMP_IF_FALSE, Null
             Dim jfIdx As Long
-            jfIdx = m_codesCol.count
+            jfIdx = m_codesCol.Count
             Dim thenStmts As Collection
             Set thenStmts = Nothing
             On Error Resume Next
@@ -3579,14 +3596,14 @@ Private Sub EmitStmtBytecode(stmt As Map)
             On Error GoTo 0
             If Not thenStmts Is Nothing Then
                 Dim i2 As Long
-                For i2 = 1 To thenStmts.count
+                For i2 = 1 To thenStmts.Count
                     EmitStmtBytecode thenStmts(i2)
                 Next i2
             End If
             EmitOp OP_JUMP, Null
             Dim jaIdx As Long
-            jaIdx = m_codesCol.count
-            PatchOperandAt jfIdx + 1, m_codesCol.count + 1
+            jaIdx = m_codesCol.Count
+            PatchOperandAt jfIdx + 1, m_codesCol.Count + 1
             Dim elseStmts As Collection
             Set elseStmts = Nothing
             On Error Resume Next
@@ -3594,15 +3611,15 @@ Private Sub EmitStmtBytecode(stmt As Map)
             On Error GoTo 0
             If Not elseStmts Is Nothing Then
                 Dim j2 As Long
-                For j2 = 1 To elseStmts.count
+                For j2 = 1 To elseStmts.Count
                     EmitStmtBytecode elseStmts(j2)
                 Next j2
             End If
-            PatchOperandAt jaIdx + 1, m_codesCol.count + 1
+            PatchOperandAt jaIdx + 1, m_codesCol.Count + 1
 
         Case "While"
             Dim startPc As Long
-            startPc = m_codesCol.count + 1
+            startPc = m_codesCol.Count + 1
             Dim condW As Map
             Set condW = Nothing
             On Error Resume Next
@@ -3611,8 +3628,8 @@ Private Sub EmitStmtBytecode(stmt As Map)
             If Not condW Is Nothing Then EmitExprBytecode condW
             EmitOp OP_JUMP_IF_FALSE, Null
             Dim whileJfIdx As Long
-            whileJfIdx = m_codesCol.count
-            PushLoop m_codesCol.count + 1, -1, -1
+            whileJfIdx = m_codesCol.Count
+            PushLoop m_codesCol.Count + 1, -1, -1
             Dim bodyStmts As Collection
             Set bodyStmts = Nothing
             On Error Resume Next
@@ -3620,20 +3637,20 @@ Private Sub EmitStmtBytecode(stmt As Map)
             On Error GoTo 0
             If Not bodyStmts Is Nothing Then
                 Dim bsi As Long
-                For bsi = 1 To bodyStmts.count
+                For bsi = 1 To bodyStmts.Count
                     EmitStmtBytecode bodyStmts(bsi)
                 Next bsi
             End If
             EmitOp OP_JUMP, startPc
-            PatchOperandAt whileJfIdx + 1, m_codesCol.count + 1
+            PatchOperandAt whileJfIdx + 1, m_codesCol.Count + 1
             Dim topL As Map
             Set topL = TopLoop()
             If Not topL Is Nothing Then
-                topL.SetValue "end", m_codesCol.count + 1
+                topL.SetValue "end", m_codesCol.Count + 1
                 Dim brk As Collection
                 Dim bi As Long
                 Set brk = topL.GetValue("breaks")
-                For bi = 1 To brk.count
+                For bi = 1 To brk.Count
                     PatchOperandAt brk(bi), topL.GetValue("end")
                 Next bi
             End If
@@ -3642,7 +3659,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
         Case "For"
             If Not stmt.GetValue("init") Is Nothing Then EmitStmtBytecode stmt.GetValue("init")
             Dim startPcF As Long
-            startPcF = m_codesCol.count + 1
+            startPcF = m_codesCol.Count + 1
             Dim condF As Map
             Set condF = Nothing
             On Error Resume Next
@@ -3651,7 +3668,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
             If Not condF Is Nothing Then EmitExprBytecode condF
             EmitOp OP_JUMP_IF_FALSE, Null
             Dim forJfIdx As Long
-            forJfIdx = m_codesCol.count
+            forJfIdx = m_codesCol.Count
             PushLoop startPcF, -1, -1
             Dim bodyF As Collection
             Set bodyF = Nothing
@@ -3660,34 +3677,34 @@ Private Sub EmitStmtBytecode(stmt As Map)
             On Error GoTo 0
             If Not bodyF Is Nothing Then
                 Dim fbi As Long
-                For fbi = 1 To bodyF.count
+                For fbi = 1 To bodyF.Count
                     EmitStmtBytecode bodyF(fbi)
                 Next fbi
             End If
             If Not stmt.GetValue("step") Is Nothing Then EmitExprBytecode stmt.GetValue("step")
             EmitOp OP_JUMP, startPcF
-            PatchOperandAt forJfIdx + 1, m_codesCol.count + 1
+            PatchOperandAt forJfIdx + 1, m_codesCol.Count + 1
             Dim topF As Map
             Set topF = TopLoop()
             If Not topF Is Nothing Then
-                topF.SetValue "end", m_codesCol.count + 1
+                topF.SetValue "end", m_codesCol.Count + 1
                 Dim brs As Collection
                 Dim bix As Long
                 Set brs = topF.GetValue("breaks")
-                For bix = 1 To brs.count
+                For bix = 1 To brs.Count
                     PatchOperandAt brs(bix), topF.GetValue("end")
                 Next bix
             End If
             PopLoop
 
         Case "Break"
-            If m_loopStack.count = 0 Then
+            If m_loopStack.Count = 0 Then
                 EmitOp OP_PUSH_AST_NODE, stmt
                 EmitOp OP_POP, Empty
             Else
                 EmitOp OP_JUMP, Null
                 Dim idxJumpPos As Long
-                idxJumpPos = m_codesCol.count
+                idxJumpPos = m_codesCol.Count
                 Dim topL2 As Map
                 Set topL2 = TopLoop()
                 Dim brc As Collection
@@ -3697,13 +3714,13 @@ Private Sub EmitStmtBytecode(stmt As Map)
             End If
 
         Case "Continue"
-            If m_loopStack.count = 0 Then
+            If m_loopStack.Count = 0 Then
                 EmitOp OP_PUSH_AST_NODE, stmt
                 EmitOp OP_POP, Empty
             Else
                 EmitOp OP_JUMP, Null
                 Dim idxContPos As Long
-                idxContPos = m_codesCol.count
+                idxContPos = m_codesCol.Count
                 Dim topL3 As Map
                 Set topL3 = TopLoop()
                 Dim conts As Collection
@@ -3738,7 +3755,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
 
             If Not cases Is Nothing Then
                 Dim ic As Long
-                For ic = 1 To cases.count
+                For ic = 1 To cases.Count
                     Dim c As Map
                     Set c = cases(ic)
                     Dim isDef As Variant
@@ -3763,7 +3780,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
                     EmitOp OP_BINARY, "=="
                     EmitOp OP_JUMP_IF_FALSE, Null
                     Dim thisCaseJumpIdx As Long
-                    thisCaseJumpIdx = m_codesCol.count
+                    thisCaseJumpIdx = m_codesCol.Count
                     Dim st As Collection
                     Set st = Nothing
                     On Error Resume Next
@@ -3771,7 +3788,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
                     On Error GoTo 0
                     If Not st Is Nothing Then
                         Dim si As Long
-                        For si = 1 To st.count
+                        For si = 1 To st.Count
                             EmitStmtBytecode st(si)
                         Next si
                     End If
@@ -3783,15 +3800,15 @@ ContinueForLabel:
 
             If Not defaultStmts Is Nothing Then
                 Dim di As Long
-                For di = 1 To defaultStmts.count
+                For di = 1 To defaultStmts.Count
                     EmitStmtBytecode defaultStmts(di)
                 Next di
             End If
 
             Dim endPos As Long
-            endPos = m_codesCol.count + 1
+            endPos = m_codesCol.Count + 1
             Dim cpi As Long
-            For cpi = 1 To caseJumpPlaceholders.count
+            For cpi = 1 To caseJumpPlaceholders.Count
                 PatchOperandAt caseJumpPlaceholders(cpi), endPos
             Next cpi
 
@@ -3817,11 +3834,11 @@ Public Sub EmitCompactBytecodeForProgram(progIdx As Long, stmts As Collection)
     EmitterInit
     ' build conservative symbol table
     Dim i As Long
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         ScanNodeForSymbolsForEmit stmts(i)
     Next i
     ' emit program statements
-    For i = 1 To stmts.count
+    For i = 1 To stmts.Count
         EmitStmtBytecode stmts(i)
     Next i
     EmitOp OP_RETURN, Empty
@@ -3839,11 +3856,11 @@ End Sub
 Private Sub EmitPushArgs(argColl As Collection, cvals As Collection)
     Dim i As Long
     If Not cvals Is Nothing Then
-        For i = 1 To cvals.count
+        For i = 1 To cvals.Count
             EmitOp OP_PUSH_CONST, cvals(i)
         Next i
     ElseIf Not argColl Is Nothing Then
-        For i = 1 To argColl.count
+        For i = 1 To argColl.Count
             EmitExprBytecode argColl(i)
         Next i
     End If
@@ -3862,14 +3879,14 @@ Private Function GetMemberPathToParent(node As Map) As Collection
     ' parts now [leaf, parent, ...] from leaf -> root; reverse it
     Dim rev As New Collection
     Dim i As Long
-    For i = parts.count To 1 Step -1: rev.Add parts(i): Next i
+    For i = parts.Count To 1 Step -1: rev.Add parts(i): Next i
     ' path to parent: exclude last element (the leaf property)
-    If rev.count <= 1 Then
+    If rev.Count <= 1 Then
         Set GetMemberPathToParent = New Collection
         Exit Function
     End If
     Dim res As New Collection
-    For i = 1 To rev.count - 1: res.Add rev(i): Next i
+    For i = 1 To rev.Count - 1: res.Add rev(i): Next i
     Set GetMemberPathToParent = res
     Exit Function
 err_Handler:
@@ -4055,3 +4072,4 @@ End Function
 ' ---------------------
 ' End Compiler class
 ' ---------------------
+
