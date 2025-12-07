@@ -2302,7 +2302,8 @@ End Function
 
 ' Entry: apply collapsed-ident normalization for each stmt in a statements collection
 Private Function NormalizeCollapsedIdentsInStmts(stmts As Collection) As Collection
-    Dim out As New Collection
+    Dim out As Collection
+    Set out = New Collection
     If stmts Is Nothing Then
         Set NormalizeCollapsedIdentsInStmts = out: Exit Function
     End If
@@ -2371,16 +2372,20 @@ Private Function NormalizeCollapsedIdentsInNode(node As Map) As Map
             If M.Exists("cases") Then
                 Dim cs As Collection: Set cs = M.GetValue("cases")
                 Dim nc As New Collection, ci As Long
+                Dim pair As Collection
+                Dim caseVal As Map
+                Dim stmts As Collection
+                Dim newPair As Collection
                 For ci = 1 To cs.Count
-                    Dim pair As Map: Set pair = cs(ci)
-                    Dim caseVal As Map: Set caseVal = pair.GetValue(1)
-                    Dim stmts As Collection: Set stmts = pair.GetValue(2)
-                    Dim newPair As New Collection
+                    Set pair = CloneCollectionOfVariants(cs(ci))
+                    Set caseVal = pair(1)
+                    Set stmts = pair(2)
+                    Set newPair = New Collection
                     newPair.Add NormalizeCollapsedIdentsInExpr(caseVal)
                     newPair.Add NormalizeCollapsedIdentsInStmts(stmts)
-                    nc.Add newPair
+                    nc.Add CloneCollectionOfVariants(newPair)
                 Next ci
-                M.SetValue "cases", nc
+                M.SetValue "cases", CloneCollectionOfVariants(nc)
             End If
             If M.Exists("default") Then M.SetValue "default", NormalizeCollapsedIdentsInStmts(M.GetValue("default"))
             Set NormalizeCollapsedIdentsInNode = M
@@ -2662,75 +2667,6 @@ Private Sub EmitterFinishStore(progIdx As Long)
     Set m_loopStack = Nothing
 End Sub
 
-'Private Sub EmitterFinishStore(progIdx As Long)
-'    Dim n As Long: n = 0
-'    If Not m_codesCol Is Nothing Then n = m_codesCol.count
-'    Dim codes() As Long
-'    If n = 0 Then
-'        ReDim codes(1 To 1)
-'        codes(1) = OP_RETURN
-'    Else
-'        ReDim codes(1 To n)
-'        Dim i As Long
-'        For i = 1 To n
-'            codes(i) = CLng(m_codesCol(i))
-'        Next i
-'    End If
-'
-'    Dim m As Long: m = 0
-'    If Not m_argsCol Is Nothing Then m = m_argsCol.count
-'    Dim argsArr() As Variant
-'    If m = 0 Then
-'        ReDim argsArr(1 To 1)
-'        argsArr(1) = Empty
-'    Else
-'        ReDim argsArr(1 To m)
-'        For i = 1 To m
-'            vAssignment argsArr(i), m_argsCol(i)
-'        Next i
-'    End If
-'
-'    ' Ensure we always have a Map for symbols (so VM can rely on it existing)
-'    If m_symbolMap Is Nothing Then
-'        Set m_symbolMap = New Map
-'    End If
-'    ' Compute slot count: number of reserved numeric slots (m_nextSlot - 1)
-'    Dim slotCount As Long
-'    If m_nextSlot <= 1 Then
-'        slotCount = 0
-'    Else
-'        slotCount = m_nextSlot - 1
-'    End If
-'
-'    ' Write slot count into symbol map under a stable key
-'    On Error Resume Next
-'    If m_symbolMap.Exists("__slot_count") Then
-'        m_symbolMap.SetValue "__slot_count", slotCount
-'    Else
-'        m_symbolMap.Add "__slot_count", slotCount
-'    End If
-'    On Error GoTo 0
-'
-'    ' build a Map to hold compact bytecode for program
-'    Dim bcMap As New Map
-'    bcMap.Add "codes", codes
-'    bcMap.SetValue "args", argsArr
-'    bcMap.SetValue "symbols", m_symbolMap
-'
-'    ' ensure globals collections exist and store program bytecode & symbols
-'    EnsureProgramsCollections
-'    GLOBALS_.gProgramsBytecode.Add bcMap
-'    GLOBALS_.gProgramsSymbols.Add m_symbolMap
-'
-'    ' cleanup emitter state
-'    Set m_codesCol = Nothing
-'    Set m_argsCol = Nothing
-'    Set m_symbolMap = Nothing
-'    m_nextSlot = 0
-'    m_progTempCounter = 0
-'    Set m_loopStack = Nothing
-'End Sub
-
 Private Sub EmitOp(opcode As Long, operand As Variant)
     m_codesCol.Add opcode
     m_argsCol.Add operand
@@ -2908,19 +2844,25 @@ Private Sub ScanNodeForSymbolsForEmit(node As Map)
             Dim cases As Collection: Set cases = node.GetValue("cases")
             If Not cases Is Nothing Then
                 Dim z As Long
+                Dim zz As Long
+                Dim st As Collection
                 For z = 1 To cases.Count
-                    Dim c As Map
+                    Dim c As Collection
                     Set c = cases(z)
-                    ScanNodeForSymbolsForEmit c.GetValue("value")
-                    Dim st As Collection: Set st = c.GetValue("stmts")
-                    If Not st Is Nothing Then
-                        Dim w As Long
-                        For w = 1 To st.Count
-                            ScanNodeForSymbolsForEmit st(w)
-                        Next w
-                    End If
+                    For zz = 1 To c.Count Step 2
+                        ScanNodeForSymbolsForEmit c(zz) 'Value node
+                        On Error Resume Next
+                        Set st = c(zz + 1) 'Statements collection
+                        If Not st Is Nothing Then
+                            Dim w As Long
+                            For w = 1 To st.Count
+                                ScanNodeForSymbolsForEmit st(w)
+                            Next w
+                        End If
+                    Next zz
                 Next z
             End If
+
         Case "Object"
             ' Object literal: visit each property's value (don't register property names as symbols)
             ' canonical shapes: "props", "pairs", "items"
@@ -3048,15 +2990,23 @@ Private Sub EmitExprBytecode(node As Map)
             vAssignment opuVar, node.GetValue("op")
             On Error GoTo 0
             If Not IsEmpty(opuVar) Then
+                Dim exprN As Map
                 If CStr(opuVar) = "-" Then
                     EmitOp OP_PUSH_CONST, 0
-                    Dim exprN As Map
                     Set exprN = Nothing
                     On Error Resume Next
                     vAssignment exprN, node.GetValue("expr")
                     On Error GoTo 0
                     If Not exprN Is Nothing Then EmitExprBytecode exprN
                     EmitOp OP_BINARY, "-"
+                ElseIf CStr(opuVar) = "!" Then
+                    EmitOp OP_PUSH_CONST, 0
+                    Set exprN = Nothing
+                    On Error Resume Next
+                    vAssignment exprN, node.GetValue("expr")
+                    On Error GoTo 0
+                    If Not exprN Is Nothing Then EmitExprBytecode exprN
+                    EmitOp OP_BINARY, "!"
                 Else
                     Dim exprN2 As Map
                     Set exprN2 = Nothing
@@ -3318,6 +3268,7 @@ Private Sub EmitStmtBytecode(stmt As Map)
     End If
 
     Dim tVar As Variant
+    Dim tmpStmt As Map
     tVar = Empty
     On Error Resume Next
     vAssignment tVar, stmt.GetValue("type")
@@ -3580,96 +3531,224 @@ Private Sub EmitStmtBytecode(stmt As Map)
             End If
 
         Case "If"
+            ' --- read cond ---
             Dim condNode As Map
             Set condNode = Nothing
             On Error Resume Next
             vAssignment condNode, stmt.GetValue("cond")
             On Error GoTo 0
-            If Not condNode Is Nothing Then EmitExprBytecode condNode
+        
+            ' --- evaluate initial condition ---
+            If Not condNode Is Nothing Then
+                EmitExprBytecode condNode
+            End If
+        
+            ' Collections to track placeholders we must patch later
+            Dim jfPlaceholders As Collection
+            Dim jaPlaceholders As Collection
+            Set jfPlaceholders = New Collection
+            Set jaPlaceholders = New Collection
+        
+            ' Emit JUMP_IF_FALSE placeholder for the first condition
             EmitOp OP_JUMP_IF_FALSE, Null
-            Dim jfIdx As Long
-            jfIdx = m_codesCol.Count
-            Dim thenStmts As Collection
-            Set thenStmts = Nothing
+            jfPlaceholders.Add m_argsCol.Count    ' capture arg slot index
+        
+            ' --- emit then block (field name "then" or "thenStmts") ---
+            Dim thenBlock As Collection
+            Set thenBlock = Nothing
             On Error Resume Next
-            vAssignment thenStmts, stmt.GetValue("thenStmts")
+            vAssignment thenBlock, stmt.GetValue("then")
             On Error GoTo 0
-            If Not thenStmts Is Nothing Then
-                Dim i2 As Long
-                For i2 = 1 To thenStmts.Count
-                    EmitStmtBytecode thenStmts(i2)
-                Next i2
+        
+            If Not thenBlock Is Nothing Then
+                Dim tbi As Long
+                For tbi = 1 To thenBlock.Count
+                    EmitStmtBytecode thenBlock(tbi)
+                Next tbi
             End If
+        
+            ' after then: emit unconditional jump to skip the rest, capture operand slot
             EmitOp OP_JUMP, Null
-            Dim jaIdx As Long
-            jaIdx = m_codesCol.Count
-            PatchOperandAt jfIdx + 1, m_codesCol.Count + 1
-            Dim elseStmts As Collection
-            Set elseStmts = Nothing
+            jaPlaceholders.Add m_argsCol.Count
+        
+            ' patch the first jf to point to the next emitted code (start of first elseif cond or else or after-if)
+            PatchOperandAt jfPlaceholders(jfPlaceholders.Count), m_codesCol.Count + 1
+        
+            ' --- handle elseif chain if present ---
+            Dim elseifConds As Collection
+            Dim elseifBlocks As Collection
+            Set elseifConds = Nothing
+            Set elseifBlocks = Nothing
             On Error Resume Next
-            vAssignment elseStmts, stmt.GetValue("elseStmts")
+            If stmt.Exists("elseif_conds") Then vAssignment elseifConds, stmt.GetValue("elseif_conds")
+            If stmt.Exists("elseif_blocks") Then vAssignment elseifBlocks, stmt.GetValue("elseif_blocks")
             On Error GoTo 0
-            If Not elseStmts Is Nothing Then
-                Dim j2 As Long
-                For j2 = 1 To elseStmts.Count
-                    EmitStmtBytecode elseStmts(j2)
-                Next j2
+        
+            If Not elseifConds Is Nothing And Not elseifBlocks Is Nothing Then
+                Dim ei As Long
+                Dim nElseIf As Long
+                nElseIf = elseifConds.Count
+                For ei = 1 To nElseIf
+                    ' emit elseif condition
+                    If Not elseifConds(ei) Is Nothing Then EmitExprBytecode elseifConds(ei)
+        
+                    ' placeholder for this elseif's false branch
+                    EmitOp OP_JUMP_IF_FALSE, Null
+                    jfPlaceholders.Add m_argsCol.Count
+        
+                    ' emit this elseif's then-block
+                    Dim eb As Collection
+                    Set eb = Nothing
+                    On Error Resume Next
+                    vAssignment eb, elseifBlocks(ei)
+                    On Error GoTo 0
+                    If Not eb Is Nothing Then
+                        Dim ebi As Long
+                        For ebi = 1 To eb.Count
+                            EmitStmtBytecode eb(ebi)
+                        Next ebi
+                    End If
+        
+                    ' emit unconditional jump to skip remaining branches
+                    EmitOp OP_JUMP, Null
+                    jaPlaceholders.Add m_argsCol.Count
+        
+                    ' patch this jf (the one for this elseif) to the next code (start of next elseif cond or else or after-if)
+                    PatchOperandAt jfPlaceholders(jfPlaceholders.Count), m_codesCol.Count + 1
+                Next ei
             End If
-            PatchOperandAt jaIdx + 1, m_codesCol.Count + 1
-
+        
+            ' --- optional else ---
+            Dim hasElse As Variant
+            On Error Resume Next
+            If stmt.Exists("hasElse") Then vAssignment hasElse, stmt.GetValue("hasElse")
+            On Error GoTo 0
+        
+            If CBool(hasElse) Then
+                Dim elseBlock As Collection
+                On Error Resume Next
+                vAssignment elseBlock, stmt.GetValue("else")
+                If Not elseBlock Is Nothing Then
+                    Dim ibi As Long
+                    For ibi = 1 To elseBlock.Count
+                        EmitStmtBytecode elseBlock(ibi)
+                    Next ibi
+                End If
+            End If
+        
+            ' --- finally patch all unconditional jumps (jaPlaceholders) to point after entire if chain ---
+            Dim jx As Long
+            For jx = 1 To jaPlaceholders.Count
+                PatchOperandAt jaPlaceholders(jx), m_codesCol.Count + 1
+            Next jx
         Case "While"
             Dim startPc As Long
             startPc = m_codesCol.Count + 1
+        
             Dim condW As Map
             Set condW = Nothing
             On Error Resume Next
             vAssignment condW, stmt.GetValue("cond")
             On Error GoTo 0
-            If Not condW Is Nothing Then EmitExprBytecode condW
-            EmitOp OP_JUMP_IF_FALSE, Null
-            Dim whileJfIdx As Long
-            whileJfIdx = m_codesCol.Count
-            PushLoop m_codesCol.Count + 1, -1, -1
+        
+            If Not condW Is Nothing Then
+                EmitExprBytecode condW
+            End If
+        
+            ' Emit JUMP_IF_FALSE placeholder and record the ARG index (not codes index)
+            EmitOp OP_JUMP_IF_FALSE, Empty
+            Dim whileJfArgIdx As Long
+            whileJfArgIdx = m_argsCol.Count
+        
+            ' Push loop frame: store startPc so continues can be patched to it later
+            PushLoop startPc, -1, -1
+        
             Dim bodyStmts As Collection
             Set bodyStmts = Nothing
             On Error Resume Next
             vAssignment bodyStmts, stmt.GetValue("body")
             On Error GoTo 0
+        
             If Not bodyStmts Is Nothing Then
                 Dim bsi As Long
                 For bsi = 1 To bodyStmts.Count
                     EmitStmtBytecode bodyStmts(bsi)
                 Next bsi
             End If
+        
+            ' Jump back to loop start (re-evaluate condition)
             EmitOp OP_JUMP, startPc
-            PatchOperandAt whileJfIdx + 1, m_codesCol.Count + 1
+        
+            ' Now patch the JUMP_IF_FALSE operand to point after the loop
+            PatchOperandAt whileJfArgIdx, m_codesCol.Count + 1
+        
+            ' Patch breaks and continues recorded in the loop frame
             Dim topL As Map
             Set topL = TopLoop()
             If Not topL Is Nothing Then
+                ' set loop end PC
                 topL.SetValue "end", m_codesCol.Count + 1
+        
                 Dim brk As Collection
                 Dim bi As Long
+                On Error Resume Next
                 Set brk = topL.GetValue("breaks")
-                For bi = 1 To brk.Count
-                    PatchOperandAt brk(bi), topL.GetValue("end")
-                Next bi
+                On Error GoTo 0
+                If Not brk Is Nothing Then
+                    For bi = 1 To brk.Count
+                        PatchOperandAt brk(bi), topL.GetValue("end")
+                    Next bi
+                End If
+        
+                Dim conts As Collection
+                On Error Resume Next
+                Set conts = topL.GetValue("conts")
+                On Error GoTo 0
+                If Not conts Is Nothing Then
+                    For bi = 1 To conts.Count
+                        ' continues must jump to startPc (re-evaluate condition / loop top)
+                        PatchOperandAt conts(bi), startPc
+                    Next bi
+                End If
             End If
+        
             PopLoop
 
         Case "For"
-            If Not stmt.GetValue("init") Is Nothing Then EmitStmtBytecode stmt.GetValue("init")
+            ' init
+            If Not stmt.GetValue("init") Is Nothing Then
+                EmitStmtBytecode stmt.GetValue("init")
+            End If
+        
+            ' start of loop condition check
             Dim startPcF As Long
             startPcF = m_codesCol.Count + 1
+        
+            ' emit condition
             Dim condF As Map
             Set condF = Nothing
             On Error Resume Next
             vAssignment condF, stmt.GetValue("cond")
             On Error GoTo 0
-            If Not condF Is Nothing Then EmitExprBytecode condF
+            If Not condF Is Nothing Then
+                EmitExprBytecode condF
+            Else
+                ' no condition => treat as always true; emit constant true (1)
+                EmitOp OP_PUSH_CONST, 1
+            End If
+        
+            ' Emit placeholder JUMP_IF_FALSE and capture its args-slot index immediately
             EmitOp OP_JUMP_IF_FALSE, Null
-            Dim forJfIdx As Long
-            forJfIdx = m_codesCol.Count
+            Dim forJfArgIdx As Long
+            forJfArgIdx = 0
+            On Error Resume Next
+            forJfArgIdx = m_argsCol.Count
+            On Error GoTo 0
+        
+            ' push loop info: we will patch breaks->end and conts->stepPc later
             PushLoop startPcF, -1, -1
+        
+            ' emit body
             Dim bodyF As Collection
             Set bodyF = Nothing
             On Error Resume Next
@@ -3681,20 +3760,51 @@ Private Sub EmitStmtBytecode(stmt As Map)
                     EmitStmtBytecode bodyF(fbi)
                 Next fbi
             End If
-            If Not stmt.GetValue("step") Is Nothing Then EmitExprBytecode stmt.GetValue("step")
+        
+            ' mark where step starts (so continue jumps to here)
+            Dim stepPc As Long
+            stepPc = m_codesCol.Count + 1
+        
+            ' emit step (if any)
+            If Not stmt.GetValue("step") Is Nothing Then
+                EmitExprBytecode stmt.GetValue("step")
+            End If
+        
+            ' jump back to loop start (condition)
             EmitOp OP_JUMP, startPcF
-            PatchOperandAt forJfIdx + 1, m_codesCol.Count + 1
+        
+            ' patch the JUMP_IF_FALSE placeholder to point here (after loop)
+            PatchOperandAt forJfArgIdx, m_codesCol.Count + 1
+        
+            ' pop loop info and patch breaks/continues
             Dim topF As Map
             Set topF = TopLoop()
             If Not topF Is Nothing Then
+                ' end target is next opcode
                 topF.SetValue "end", m_codesCol.Count + 1
+                topF.SetValue "step", stepPc
+        
+                ' patch breaks -> end
                 Dim brs As Collection
-                Dim bix As Long
                 Set brs = topF.GetValue("breaks")
-                For bix = 1 To brs.Count
-                    PatchOperandAt brs(bix), topF.GetValue("end")
-                Next bix
+                If Not brs Is Nothing Then
+                    Dim bix As Long
+                    For bix = 1 To brs.Count
+                        PatchOperandAt CLng(brs(bix)), topF.GetValue("end")
+                    Next bix
+                End If
+        
+                ' patch continues -> stepPc (jump to step)
+                Dim contsW As Collection
+                Set contsW = topF.GetValue("conts")
+                If Not contsW Is Nothing Then
+                    Dim cix As Long
+                    For cix = 1 To contsW.Count
+                        PatchOperandAt CLng(contsW(cix)), topF.GetValue("step")
+                    Next cix
+                End If
             End If
+        
             PopLoop
 
         Case "Break"
@@ -3702,15 +3812,25 @@ Private Sub EmitStmtBytecode(stmt As Map)
                 EmitOp OP_PUSH_AST_NODE, stmt
                 EmitOp OP_POP, Empty
             Else
+                ' emit placeholder jump (to be patched to loop end)
                 EmitOp OP_JUMP, Null
-                Dim idxJumpPos As Long
-                idxJumpPos = m_codesCol.Count
+                Dim breakArgIdx As Long
+                breakArgIdx = 0
+                On Error Resume Next
+                breakArgIdx = m_argsCol.Count
+                On Error GoTo 0
+        
                 Dim topL2 As Map
                 Set topL2 = TopLoop()
-                Dim brc As Collection
-                Set brc = topL2.GetValue("breaks")
-                brc.Add idxJumpPos + 1
-                topL2.SetValue "breaks", brc
+                If Not topL2 Is Nothing Then
+                    Dim brc As Collection
+                    Set brc = topL2.GetValue("breaks")
+                    If brc Is Nothing Then
+                        Set brc = New Collection
+                    End If
+                    brc.Add breakArgIdx
+                    topL2.SetValue "breaks", brc
+                End If
             End If
 
         Case "Continue"
@@ -3718,100 +3838,143 @@ Private Sub EmitStmtBytecode(stmt As Map)
                 EmitOp OP_PUSH_AST_NODE, stmt
                 EmitOp OP_POP, Empty
             Else
+                ' emit placeholder jump (to be patched to stepPc)
                 EmitOp OP_JUMP, Null
-                Dim idxContPos As Long
-                idxContPos = m_codesCol.Count
+                Dim contArgIdx As Long
+                contArgIdx = 0
+                On Error Resume Next
+                contArgIdx = m_argsCol.Count
+                On Error GoTo 0
+        
                 Dim topL3 As Map
                 Set topL3 = TopLoop()
-                Dim conts As Collection
-                Set conts = topL3.GetValue("conts")
-                conts.Add idxContPos + 1
-                topL3.SetValue "conts", conts
+                If Not topL3 Is Nothing Then
+                    Dim contsC As Collection
+                    Set contsC = topL3.GetValue("conts")
+                    If contsC Is Nothing Then
+                        Set contsC = New Collection
+                    End If
+                    contsC.Add contArgIdx
+                    topL3.SetValue "conts", contsC
+                End If
             End If
-
         Case "Switch"
+            ' Evaluate switch expression and store into temp slot
             Dim exprNode As Map
-            Set exprNode = Nothing
             On Error Resume Next
             vAssignment exprNode, stmt.GetValue("expr")
             On Error GoTo 0
-
+        
             Dim tempSlot As Long
             tempSlot = CreateTempSlot()
-            If Not exprNode Is Nothing Then EmitExprBytecode exprNode
+        
+            If Not exprNode Is Nothing Then
+                EmitExprBytecode exprNode
+            Else
+                EmitOp OP_PUSH_CONST, Empty
+            End If
             EmitOp OP_STORE_FAST, tempSlot
-
-            Dim cases As Collection
-            Set cases = Nothing
+        
+            ' Read cases (expected: a Collection of caseEntry items)
+            Dim casesVar As Collection
             On Error Resume Next
-            vAssignment cases, stmt.GetValue("cases")
+            vAssignment casesVar, stmt.GetValue("cases")
             On Error GoTo 0
-
+        
+            ' Optional default branch (may be provided under "default")
             Dim defaultStmts As Collection
-            Set defaultStmts = Nothing
-
-            Dim caseJumpPlaceholders As Collection
-            Set caseJumpPlaceholders = New Collection
-
-            If Not cases Is Nothing Then
-                Dim ic As Long
-                For ic = 1 To cases.Count
-                    Dim c As Map
-                    Set c = cases(ic)
-                    Dim isDef As Variant
-                    isDef = Empty
+            On Error Resume Next
+            If stmt.Exists("default") Then vAssignment defaultStmts, stmt.GetValue("default")
+            On Error GoTo 0
+        
+            ' Placeholders to patch later
+            Dim condPlaceholders As New Collection
+            Dim uncondPlaceholders As New Collection
+            Dim valueNode As Map
+            Dim stmtsBlock As Collection
+            Dim isDefaultCase As Boolean
+            Dim caseEntry As Collection
+            Dim ic As Long
+            If Not casesVar Is Nothing Then
+                For ic = 1 To casesVar.Count
                     On Error Resume Next
-                    vAssignment isDef, c.GetValue("isDefault")
+                    vAssignment caseEntry, casesVar(ic)
                     On Error GoTo 0
-                    If Not IsEmpty(isDef) Then
-                        If CBool(isDef) Then
-                            vAssignment defaultStmts, c.GetValue("stmts")
-                            GoTo ContinueForLabel
-                        End If
-                    End If
-
-                    EmitOp OP_LOAD_FAST, tempSlot
-                    Dim valueNode As Map
+        
                     Set valueNode = Nothing
-                    On Error Resume Next
-                    vAssignment valueNode, c.GetValue("value")
-                    On Error GoTo 0
-                    If Not valueNode Is Nothing Then EmitExprBytecode valueNode
+                    Set stmtsBlock = Nothing
+        
+                    ' caseEntry must be a Collection
+                    If Not caseEntry Is Nothing Then
+                        ' legacy shape: a Map with "value"/"stmts" keys
+                        On Error Resume Next
+                        vAssignment valueNode, caseEntry(1)
+                        vAssignment stmtsBlock, caseEntry(2)
+                        On Error GoTo 0
+                    End If
+        
+                    ' Emit: load switch value (tempSlot) then case value then compare
+                    EmitOp OP_LOAD_FAST, tempSlot
+        
+                    If Not valueNode Is Nothing Then
+                        EmitExprBytecode valueNode
+                    Else
+                        EmitOp OP_PUSH_CONST, Empty
+                    End If
+        
                     EmitOp OP_BINARY, "=="
+        
+                    ' conditional jump placeholder: if false jump to next comparison (we patch it after emitting the body)
                     EmitOp OP_JUMP_IF_FALSE, Null
-                    Dim thisCaseJumpIdx As Long
-                    thisCaseJumpIdx = m_codesCol.Count
-                    Dim st As Collection
-                    Set st = Nothing
-                    On Error Resume Next
-                    vAssignment st, c.GetValue("stmts")
-                    On Error GoTo 0
-                    If Not st Is Nothing Then
+                    Dim condArgIdx As Long
+                    condArgIdx = m_argsCol.Count
+                    condPlaceholders.Add condArgIdx
+        
+                    ' emit case body (stmtsBlock may be Collection or single map)
+                    If Not stmtsBlock Is Nothing Then
                         Dim si As Long
-                        For si = 1 To st.Count
-                            EmitStmtBytecode st(si)
+                        For si = 1 To stmtsBlock.Count
+                            vAssignment tmpStmt, stmtsBlock(si)
+                            If Not tmpStmt Is Nothing Then EmitStmtBytecode tmpStmt
                         Next si
                     End If
+        
+                    ' after body, jump to end of switch
                     EmitOp OP_JUMP, Null
-                    caseJumpPlaceholders.Add thisCaseJumpIdx + 1
-ContinueForLabel:
+                    Dim uncondArgIdx As Long
+                    uncondArgIdx = m_argsCol.Count
+                    uncondPlaceholders.Add uncondArgIdx
+        
+                    ' patch this conditional placeholder to point to next instruction (just after the body/unconditional)
+                    PatchOperandAt condArgIdx, m_codesCol.Count + 1
+ContinueCaseLoop:
                 Next ic
             End If
-
-            If Not defaultStmts Is Nothing Then
-                Dim di As Long
-                For di = 1 To defaultStmts.Count
-                    EmitStmtBytecode defaultStmts(di)
-                Next di
+        
+            ' emit default branch if present
+            If Not IsEmpty(defaultStmts) Then
+                If IsObject(defaultStmts) And TypeName(defaultStmts) = "Collection" Then
+                    Dim di As Long
+                    For di = 1 To defaultStmts.Count
+                        Dim tmpD As Map
+                        vAssignment tmpD, defaultStmts(di)
+                        If Not IsEmpty(tmpD) Then EmitStmtBytecode tmpD
+                    Next di
+                Else
+                    Dim tmpD2 As Map
+                    vAssignment tmpD2, defaultStmts
+                    If Not IsEmpty(tmpD2) Then EmitStmtBytecode tmpD2
+                End If
             End If
-
-            Dim endPos As Long
-            endPos = m_codesCol.Count + 1
-            Dim cpi As Long
-            For cpi = 1 To caseJumpPlaceholders.Count
-                PatchOperandAt caseJumpPlaceholders(cpi), endPos
-            Next cpi
-
+        
+            ' patch all unconditional jumps to the end
+            Dim endPos As Long: endPos = m_codesCol.Count + 1
+            Dim pj As Long
+            For pj = 1 To uncondPlaceholders.Count
+                Dim argIdx2 As Long: argIdx2 = uncondPlaceholders(pj)
+                PatchOperandAt argIdx2, endPos
+            Next pj
+    
         Case "TryCatch"
             EmitOp OP_PUSH_AST_NODE, stmt
             EmitOp OP_POP, Empty
