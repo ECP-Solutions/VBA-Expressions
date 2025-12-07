@@ -464,10 +464,10 @@ Private Function ExecForNode(node As Map, progScope As ScopeStack) As String
         initType = initNode.GetValue("type")
         Select Case initType
             Case "Assign", "Print", "If", "For", "While", "TryCatch", "Switch", "Return", "Break", "Continue", "ExprStmt"
-                ' Already a statement node Â— execute directly so side-effects happen.
+                ' Already a statement node — execute directly so side-effects happen.
                 ExecuteStmtNode initNode, progScope
             Case Else
-                ' Expression node Â— wrap into ExprStmt for side-effect evaluation.
+                ' Expression node — wrap into ExprStmt for side-effect evaluation.
                 ExecuteStmtNode MakeNodeExprStmt(initNode), progScope
         End Select
     End If
@@ -677,7 +677,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             Dim vval As Variant
             vAssignment vval, progScope.GetValue(vname)
 
-            ' If scope contains a non-empty value, return it Â— this covers closures
+            ' If scope contains a non-empty value, return it — this covers closures
             ' stored as Map/AST nodes (FuncLiteral/Closure/etc.).
             If Not IsEmpty(vval) Then
                 ' If it's a Map and looks like a function node, return as callable
@@ -697,7 +697,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                         End If
                     End If
                 End If
-                ' Not necessarily a function-like Map Â— still return stored value.
+                ' Not necessarily a function-like Map — still return stored value.
                 vAssignment tmpResult, vval
                 GoTo exitfun
             End If
@@ -729,7 +729,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                                 paramsCol.Add vbNullString
                             End If
                         ElseIf TypeName(paVar) = "Collection" Then
-                            ' already a collection Â— copy it
+                            ' already a collection — copy it
                             Dim it As Variant
                             For Each it In paVar
                                 paramsCol.Add it
@@ -744,7 +744,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
                     pinfo = GLOBALS_.gPrograms(funcIdx)
                     If err.Number <> 0 Then
                         err.Clear
-                        ' fallback: no program info Â— return Empty
+                        ' fallback: no program info — return Empty
                         EvalExprNode = Empty
                         Exit Function
                     End If
@@ -772,7 +772,7 @@ Private Function EvalExprNode(node As Map, progScope As ScopeStack) As Variant
             End If
             On Error GoTo 0
 
-            ' Not found Â— log and return Empty
+            ' Not found — log and return Empty
             If VERBOSE_ Then GLOBALS_.gRuntimeLog.Add "VM: Variable '" & vname & "' is undefined or not callable (returned Empty)."
             vAssignment tmpResult, Empty
             GoTo exitfun
@@ -1567,6 +1567,7 @@ Private Sub DoBinaryOp(op As String, stk As ASFstack)
         Case "%": res = CLng(a) Mod CLng(b)
         Case "^": res = a ^ b
         Case "==", "=": res = (a = b)
+        Case "!": res = (Not IsTruthy(b))
         Case "!=": res = (a <> b)
         Case "<": res = (a < b)
         Case ">": res = (a > b)
@@ -1596,7 +1597,11 @@ Private Sub BytecodePrintHelper(stk As ASFstack, nArgs As Long)
     Dim visited__ As Collection
     Set visited__ = New Collection
     For i = 1 To nArgs
-        outS = outS & ValueToStringWithCtx(tmp(i), visited__, 0) & IIf(i < nArgs, " ", "")
+        If i = 1 Then
+            outS = ValueToStringWithCtx(tmp(i), visited__, 0) & IIf(i < nArgs, " ", "")
+        Else
+            outS = outS & ", " & ValueToStringWithCtx(tmp(i), visited__, 0) & IIf(i < nArgs, " ", "")
+        End If
     Next i
     If IsObject(GLOBALS_.gRuntimeLog) Then GLOBALS_.gRuntimeLog.Add "PRINT: " & outS
     If Not IsObject(GLOBALS_.gAppender) Then Debug.Print outS Else GLOBALS_.gAppender.Add outS
@@ -1901,7 +1906,7 @@ Public Sub RunCompactBytecodeProgram(progIdx As Long, progScope As ScopeStack, O
                 Dim vval As Variant: vAssignment vval, stk.Pop()
                 progScope.SetLocalValue CStr(operand), vval
                 pc = pc + 1
-
+                
             Case OP_BINARY
                 DoBinaryOp CStr(operand), stk
                 pc = pc + 1
