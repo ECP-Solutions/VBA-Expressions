@@ -467,7 +467,7 @@ For issues, feature requests, or questions, please use the issue tracker on GitH
 
 ## Licence
 
-Copyright: &copy; 2022-2025  [W. García](https://github.com/ws-garcia/).
+Copyright: &copy; 2022-2026  [W. García](https://github.com/ws-garcia/).
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
