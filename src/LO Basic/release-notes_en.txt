@@ -1,13 +1,6 @@
-# Embracing analytic geometry basis!
-## Setting changes
-- [x] The `GallopingMode` option is disabled by default.
+# LibreOffice 24.2 compatibility
 ## Bug fixed
-- [x] Broken tokenization for expressions involving evaluable literal strings.
-## New functions
-- [x] `DISTANCE`: computes the distance between two Cartesian points.
-- [x] `LINESINTERSECT`: computes the intersection point between two lines defined by two points each.
-- [x] `PARALLEL`: computes two points representing a line parallel to the given one and containing the given point.
-- [x] `PERPENDICULAR`: computes two points representing a line perpendicular to the given one and containing the given point.
+- [x] Expressions with variables returned an empty result, and `Eval` called without arguments raised "Data type mismatch", on LibreOffice 24.2. There, an omitted optional `String` parameter with an empty default fails in comparisons; `Eval`, `GetPredInterArr` and `AppendToCBbuffer` now set it explicitly.
 
 ## Download 
-https://github.com/ws-garcia/VBA-Expressions/releases/download/v3.2.11/VBAExpressions.oxt
+https://github.com/ECP-Solutions/VBA-Expressions/releases/latest/download/VBAExpressions.oxt

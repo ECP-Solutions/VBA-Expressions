@@ -288,6 +288,7 @@ Public Sub AddVariable(ByRef variable As String, ByRef aKey As String)
 End Sub
 
 Private Sub AppendToCBbuffer(ByRef aBuffer As ClusterBuffer, ByRef ItemName As String, Optional ByRef ItemValue As String = vbNullString)
+    If IsMissing(ItemValue) Then ItemValue = vbNullString &apos;LibreOffice 24.2: an omitted empty default fails in comparisons
 	aBuffer.aindex = aBuffer.aindex + 1
     If aBuffer.aindex = aBuffer.Capacity Then ExpandBuffer(aBuffer)
     aBuffer.Storage(aBuffer.aindex).aindex = aBuffer.aindex

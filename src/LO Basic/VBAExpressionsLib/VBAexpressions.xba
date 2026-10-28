@@ -1032,6 +1032,7 @@ Private Sub AppendToBuffer(ByRef aBuffer As ClusterTree, ByRef aToken As token)
 End Sub
 
 Private Sub AppendToCBbuffer(ByRef aBuffer As ClusterBuffer, ByRef ItemName As String, Optional ByRef ItemValue As String = vbNullString)
+    If IsMissing(ItemValue) Then ItemValue = vbNullString &apos;LibreOffice 24.2: an omitted empty default fails in comparisons
 	aBuffer.aindex = aBuffer.aindex + 1
     If aBuffer.aindex = aBuffer.Capacity Then ExpandBuffer(aBuffer)
     aBuffer.Storage(aBuffer.aindex).aindex = aBuffer.aindex
@@ -2984,6 +2985,7 @@ End Function
 &apos;&apos;&apos; &lt;param name=&quot;ValuesToEvalIn&quot;&gt;The values to use for eval the parse tree.&lt;/param&gt;
 &apos;@DefaultMember
 Public Function Eval(Optional ByRef ValuesToEvalWith As String = vbNullString) As String
+    If IsMissing(ValuesToEvalWith) Then ValuesToEvalWith = vbNullString &apos;LibreOffice 24.2: an omitted empty default fails in comparisons
     If Not AssignedExpression Then
         Exit Function
     Else
@@ -4754,6 +4756,7 @@ End Function
 &apos;&apos;&apos; &lt;/param&gt;
 Private Function GetPredInterArr(ByRef strPredictorsInterList As String, n As Long, _
                                 Optional strPreditorsNames As String = vbNullString) As Variant
+    If IsMissing(strPreditorsNames) Then strPreditorsNames = vbNullString &apos;LibreOffice 24.2: an omitted empty default fails in comparisons
     Dim tmpData() As String
     Dim tmpPredict() As String
     Dim tmpResult() As Boolean
