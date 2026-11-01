@@ -1,6 +1,7 @@
 # VBA Expressions
 ## ![VBA Expressions](/docs/assets/img/VBA%20Expressions-NewLogo.png)
 [![GitHub](https://img.shields.io/github/license/ws-garcia/VBA-Expressions?style=plastic)](https://github.com/ws-garcia/VBA-Expressions/blob/master/LICENSE) [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ws-garcia/VBA-Expressions?style=plastic)](https://github.com/ws-garcia/VBA-Expressions/releases/latest) [![Mentioned in Awesome VBA](https://awesome.re/mentioned-badge.svg)](https://github.com/sancarn/awesome-vba)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FECP-Solutions%2FVBA-Expressions.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FECP-Solutions%2FVBA-Expressions?ref=badge_shield)
 
 ## Introductory words
 Welcome to VBA Expressions, a powerful library designed to extend the capabilities of Visual Basic for Applications (VBA) within Microsoft Office and [LibreOffice environments](https://extensions.libreoffice.org/en/extensions/show/70059). This tool enriches the standard VBA language and LO BASIC with an extensive set of functions for data manipulation, calculation, and analysis, making it ideal for users needing to perform complex operations directly within their spreadsheets, documents, presentatios and much more. 
@@ -475,3 +476,6 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU General Public License along with this program.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FECP-Solutions%2FVBA-Expressions.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FECP-Solutions%2FVBA-Expressions?ref=badge_large)
